@@ -28,7 +28,7 @@ app.use("/api", routes);
 (async () => {
     try {
         const result = await db.query('SELECT NOW()');
-        console.log('Database successfully !', result.rows);
+        console.log('Database successfully loaded !', result.rows);
     } catch (err) {
         console.error('Erreur de connexion de la BDD :', err);
     }
@@ -75,4 +75,9 @@ app.use((req, res, next) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server started on : http://localhost:${PORT}`);
+});
+
+// Placeholder index page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, "ui/index.html"));
 });
