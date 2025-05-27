@@ -33,3 +33,7 @@ void GreedyModularityOptimization::initCommus()
     }
     m *= 0.5;
 }
+
+void GreedyModularityOptimization::initMergeQueue(){
+    
+}
