@@ -1,5 +1,5 @@
 const argon2 = require('argon2');
-const db = require('../db');
+const db = require('../../db');
 
 async function userLogin(email, password) {
     if (!email || !password) {
