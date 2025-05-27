@@ -1,6 +1,7 @@
 # Private folders
 node_modules/
 secret/
+uploads/
 
 # Private files
 .env
