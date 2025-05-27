@@ -6,9 +6,12 @@ async function userLogin(email, password) {
         throw new Error('Missing required fields');
     }
 
-    // Get the user informations
+    // Get the user informations including their role
     const result = await db.query(
-        "SELECT id, email, password, name, family_name FROM users WHERE email = $1",
+        `SELECT u.id, u.email, u.password, u.name, u.family_name, r.role_name 
+         FROM users u
+         JOIN roles r ON u.role_id = r.id
+         WHERE u.email = $1`,
         [email]
     );
 
@@ -23,12 +26,13 @@ async function userLogin(email, password) {
         throw new Error('Wrong credentials');
     }
 
-    // Format the informations
+    // Format the informations, without the password
     const userData = {
         id: user.id,
         email: user.email,
         name: user.name,
-        familyName: user.family_name
+        familyName: user.family_name,
+        role: user.role_name
     };
 
     return userData;
