@@ -28,10 +28,14 @@ struct score
     int score = 1; // weight
 };
 
+
+
 class Graph
 {
 private:
     std::unordered_map<key, Node *> nodes;
+    // std::unordered_map<key, Community> commus;
+    // double m = 0.0;
 
 public:
     Graph() {}
@@ -44,6 +48,8 @@ public:
             delete n;
         }
     }
+
+    const std::unordered_map<key, Node *>& getNodes() const { return this->nodes; }
 
     // Creates a node if it doesn't exist
     Node *addNode(key id)
@@ -73,13 +79,13 @@ public:
         s->score = w;
 
         // Edge from -> to
-        edge e1 = { n2, false, s };
+        edge e1 = {n2, false, s};
         n1->otherNodes[to] = e1;
         n1->nbNeighbor = n1->otherNodes.size();
 
         if (bidirectional)
         {
-            edge e2 = { n1, true, s };
+            edge e2 = {n1, true, s};
             n2->otherNodes[from] = e2;
             n2->nbNeighbor = n2->otherNodes.size();
         }
