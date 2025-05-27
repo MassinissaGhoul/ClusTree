@@ -63,7 +63,7 @@ router.put('/me', requireAuth, async (req, res) => {
     }
 });
 
-// Suppression utilisateur
+// Delete user
 router.delete('/me', requireAuth, async (req, res) => {
     try {
         const result = await userDAO.deleteUser(req.user.id);
