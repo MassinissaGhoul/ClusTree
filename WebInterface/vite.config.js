@@ -15,4 +15,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  // AJOUT IMPORTANT : Configuration CSS pour Tailwind
+  css: {
+    postcss: './postcss.config.js'
+  }
 })
