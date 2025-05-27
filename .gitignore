@@ -36,3 +36,4 @@ build/
 .xmake/windows/x64
 
 .vs/
+.vscode/
