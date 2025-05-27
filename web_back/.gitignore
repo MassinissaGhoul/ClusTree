@@ -1,0 +1,6 @@
+# Private folders
+node_modules/
+secret/
+
+# Private files
+.env
