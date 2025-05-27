@@ -1,0 +1,1 @@
+-- Create project CLI : xmake project -k vsxmake

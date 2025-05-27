@@ -31,5 +31,8 @@
 *.out
 *.app
 
-.DS_Store/
+.DS_Store
 build/
+.xmake/windows/x64
+
+.vs/
