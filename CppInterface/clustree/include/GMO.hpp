@@ -42,4 +42,5 @@ private:
     void initCommus();
     void optimize();
     void initMergeQueue();
+    key GreedyModularityOptimization::mergeCommunities(key aid, key bid);
 };

@@ -34,6 +34,25 @@ void GreedyModularityOptimization::initCommus()
     m *= 0.5;
 }
 
-void GreedyModularityOptimization::initMergeQueue(){
+void GreedyModularityOptimization::initMergeQueue() {
+    mergeQueue = std::priority_queue<MergeEntry>();
+
+    // for every commu  A,B neigbor (B.id > A.id)
+    for (auto const& [aid, A] : commus) {
+        for (auto const& [bid, eAB] : A.edgeWeight) {
+            if (bid <= aid) continue;  // no duplicate A↔B  B↔A
+
+            double aA = A.totalDeg;
+            double aB = commus[bid].totalDeg;
+            // ΔQ = e_{A,B}/m - (aA * aB)/(2*m*m)
+            double delta = eAB / m - (aA * aB) / (2.0 * m * m);
+
+            mergeQueue.push({ delta, aid, bid });
+        }
+    }
+}
+
+key GreedyModularityOptimization::mergeCommunities(key aid, key bid){
     
 }
+
