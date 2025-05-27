@@ -10,7 +10,7 @@ async function generateToken(payload) {
     return await V4.sign(payload, privateKey, {
         expiresIn: '1h',
         audience: 'users',
-        issuer: 'your-app-name'
+        issuer: 'clustree'
     });
 }
 
@@ -18,7 +18,7 @@ async function verifyToken(token) {
     try {
         return await V4.verify(token, publicKey, {
             audience: 'users',
-            issuer: 'your-app-name'
+            issuer: 'clustree'
         });
     } catch (err) {
         throw new Error('Invalid or expired token');
