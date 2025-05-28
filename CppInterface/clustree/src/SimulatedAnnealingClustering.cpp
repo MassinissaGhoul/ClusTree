@@ -68,7 +68,7 @@ double SimulatedAnnealingClustering::computeScore()
             }
         }
     }
-    return total * 0.5; // /2 the score beacause we are adding avery edge 2 time we need to do that bc the relationship between delta and std::exp(delta / T)
+    return total / 2; // /2 the score beacause we are adding avery edge 2 time we need to do that bc the relationship between delta and std::exp(delta / T)
 }
 
 std::unordered_map<key, key> SimulatedAnnealingClustering::run()
