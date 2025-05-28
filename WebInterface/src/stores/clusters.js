@@ -1,4 +1,4 @@
-// stores/clusters.js - Updated to match backend expectations
+// stores/clusters.js - Updated with better error handling for missing endpoints
 import { defineStore } from 'pinia'
 import ApiService from '@/services/api'
 
@@ -8,7 +8,9 @@ export const useClustersStore = defineStore('clusters', {
     currentCluster: null,
     loading: false,
     error: null,
-    importedStudents: [] // New state to store imported students
+    importedStudents: [],
+    // Track local preferences when backend is not available
+    localPreferences: {}
   }),
 
   getters: {
@@ -18,6 +20,11 @@ export const useClustersStore = defineStore('clusters', {
     
     hasImportedStudents: (state) => {
       return state.importedStudents && state.importedStudents.length > 0
+    },
+    
+    getLocalPreferences: (state) => (clusterId, studentId) => {
+      const key = `${clusterId}_${studentId}`
+      return state.localPreferences[key] || null
     }
   },
 
@@ -28,7 +35,6 @@ export const useClustersStore = defineStore('clusters', {
       this.error = null
       
       try {
-        // Dynamic import to avoid circular dependency
         const { useAuthStore } = await import('./auth')
         const authStore = useAuthStore()
         
@@ -61,12 +67,11 @@ export const useClustersStore = defineStore('clusters', {
     setImportedStudents(students) {
       console.log(`📝 ${students.length} student(s) imported`)
       this.importedStudents = students
-      return Promise.resolve() // Return a promise for async/await compatibility
+      return Promise.resolve()
     },
 
     // === CREATE CLUSTER (TEACHER ONLY) ===
     async createCluster(clusterData) {
-      // Dynamic import to avoid circular dependency
       const { useAuthStore } = await import('./auth')
       const authStore = useAuthStore()
       
@@ -74,7 +79,6 @@ export const useClustersStore = defineStore('clusters', {
         throw new Error('Only teachers can create clusters')
       }
       
-      // Check if the user is authenticated
       if (!(await ApiService.verifyToken())) {
         console.error('❌ Authentication required to create a cluster')
         this.error = 'Authentication required. Please log in again.'
@@ -87,12 +91,10 @@ export const useClustersStore = defineStore('clusters', {
       try {
         console.log('🔨 Creating a new cluster...', clusterData.name)
         
-        // Ensure all required fields have values
         if (!clusterData.name) {
           throw new Error('Cluster name is required')
         }
         
-        // Prepare data with default values to match backend expectations
         const clusterPayload = {
           name: clusterData.name,
           clusterType: clusterData.clusterType || '1',
@@ -101,7 +103,6 @@ export const useClustersStore = defineStore('clusters', {
           maxAffinity: clusterData.maxAffinity || 3
         }
         
-        // Add imported students if they exist
         if (this.importedStudents.length > 0) {
           clusterPayload.students = this.importedStudents
         } else {
@@ -112,10 +113,8 @@ export const useClustersStore = defineStore('clusters', {
         
         const response = await ApiService.createCluster(clusterPayload)
         
-        // Add the new cluster to the local list
         if (response.cluster) {
           this.clusters.push(response.cluster)
-          // Clear imported students after successful creation
           this.importedStudents = []
         }
         
@@ -126,7 +125,6 @@ export const useClustersStore = defineStore('clusters', {
         console.error('❌ Error creating cluster:', error.message)
         this.error = error.message
         
-        // Special handling for authentication errors
         if (error.message.includes('token') || error.message.includes('auth') ||
             error.message.includes('401') || error.message.includes('403')) {
           return { success: false, error: 'Authentication error. Please log in again.', authError: true }
@@ -166,7 +164,6 @@ export const useClustersStore = defineStore('clusters', {
       console.log('📝 Submitting preferences:', { clusterId, preferences })
       
       try {
-        // Try to submit to the real API first
         const response = await ApiService.submitStudentPreferences(clusterId, preferences)
         
         // Update local state if successful
@@ -176,20 +173,33 @@ export const useClustersStore = defineStore('clusters', {
           cluster.preferences[preferences.studentId] = preferences.choices
         }
         
+        console.log('✅ Preferences submitted successfully to backend')
         return { success: true, data: response }
         
       } catch (error) {
         console.error('❌ Error submitting preferences to API:', error.message)
         
-        // Fallback to local simulation
-        console.log('🔄 Falling back to local simulation')
-        const cluster = this.clusters.find(c => c.id === clusterId)
-        if (cluster) {
-          cluster.preferences = cluster.preferences || {}
-          cluster.preferences[preferences.studentId] = preferences.choices
+        // Check if it's a missing endpoint error
+        if (error.message === 'ENDPOINT_NOT_FOUND') {
+          console.log('🔄 Backend endpoint not available, using local simulation')
+          
+          // Store preferences locally
+          const key = `${clusterId}_${preferences.studentId}`
+          this.localPreferences[key] = preferences
+          
+          // Also update cluster if it exists
+          const cluster = this.clusters.find(c => c.id === clusterId)
+          if (cluster) {
+            cluster.preferences = cluster.preferences || {}
+            cluster.preferences[preferences.studentId] = preferences.choices
+          }
+          
+          console.log('💾 Preferences stored locally')
+          return { success: true, simulated: true, message: 'Preferences saved locally (backend endpoint not available)' }
         }
         
-        return { success: true, simulated: true }
+        // For other errors, return failure
+        return { success: false, error: error.message }
       }
     },
 
@@ -202,12 +212,35 @@ export const useClustersStore = defineStore('clusters', {
       } catch (error) {
         console.error('❌ Error retrieving preferences:', error.message)
         
-        // Fallback to local data
-        const cluster = this.clusters.find(c => c.id === clusterId)
-        if (cluster && cluster.preferences && cluster.preferences[studentId]) {
-          return { success: true, preferences: cluster.preferences[studentId], local: true }
+        // Check if it's a missing endpoint error
+        if (error.message === 'ENDPOINT_NOT_FOUND') {
+          console.log('🔄 Backend endpoint not available, checking local storage')
+          
+          // Try to get from local storage
+          const localPrefs = this.getLocalPreferences(clusterId, studentId)
+          if (localPrefs) {
+            return { success: true, preferences: localPrefs, local: true }
+          }
+          
+          // Also check cluster data
+          const cluster = this.clusters.find(c => c.id === clusterId)
+          if (cluster && cluster.preferences && cluster.preferences[studentId]) {
+            return { success: true, preferences: cluster.preferences[studentId], local: true }
+          }
         }
         
+        return { success: false, error: error.message }
+      }
+    },
+
+    // === RUN CLUSTER SCRIPT ===
+    async runClusterScript(clusterName, scriptName) {
+      try {
+        console.log('🚀 Running script:', { clusterName, scriptName })
+        const response = await ApiService.runClusterScript(clusterName, scriptName)
+        return { success: true, output: response.output || response.message }
+      } catch (error) {
+        console.error('❌ Error running script:', error.message)
         return { success: false, error: error.message }
       }
     },
@@ -217,7 +250,23 @@ export const useClustersStore = defineStore('clusters', {
       this.clusters = []
       this.currentCluster = null
       this.importedStudents = []
+      this.localPreferences = {}
       this.error = null
+    },
+
+    // === LOCAL PREFERENCES MANAGEMENT ===
+    clearLocalPreferences(clusterId = null) {
+      if (clusterId) {
+        // Clear preferences for specific cluster
+        Object.keys(this.localPreferences).forEach(key => {
+          if (key.startsWith(`${clusterId}_`)) {
+            delete this.localPreferences[key]
+          }
+        })
+      } else {
+        // Clear all local preferences
+        this.localPreferences = {}
+      }
     }
   }
 })

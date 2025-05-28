@@ -1,8 +1,6 @@
-// services/api.js - Service for communicating with the backend (Vite Version)
+// services/api.js - Updated with better error handling for missing endpoints
 class ApiService {
   constructor() {
-    // In Vite, use import.meta.env instead of process.env
-    // Variables must start with VITE_
     this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
   }
 
@@ -17,19 +15,14 @@ class ApiService {
       ...options
     }
 
-    // Add Content-Type only if not FormData
     if (!(options.body instanceof FormData)) {
       config.headers['Content-Type'] = 'application/json'
     }
 
-    // Check both sessionStorage and localStorage for token
-    // Try sessionStorage first (more secure)
     let token = sessionStorage.getItem('auth_token')
     
-    // If not found, check localStorage (for backward compatibility)
     if (!token) {
       token = localStorage.getItem('auth_token')
-      // If found in localStorage, migrate it to sessionStorage
       if (token) {
         sessionStorage.setItem('auth_token', token)
       }
@@ -46,7 +39,6 @@ class ApiService {
       if (config.body) {
         if (config.body instanceof FormData) {
           console.log('📤 Request Body: [FormData]')
-          // Debug logging to see what's being sent
           for (let pair of config.body.entries()) {
             console.log(`${pair[0]}: ${pair[1] instanceof File ? pair[1].name : pair[1]}`)
           }
@@ -57,18 +49,26 @@ class ApiService {
       
       const response = await fetch(url, config)
       
-      // Enhanced error handling
       if (!response.ok) {
         const errorData = await response.text()
         let errorMessage
+        
         try {
           const parsedError = JSON.parse(errorData)
           errorMessage = parsedError.error || parsedError.message || `HTTP ${response.status}`
         } catch {
-          errorMessage = errorData || `HTTP ${response.status}`
+          // Handle HTML error pages (like 404)
+          if (errorData.includes('<!DOCTYPE html>')) {
+            if (response.status === 404) {
+              errorMessage = `Endpoint not found: ${endpoint}`
+            } else {
+              errorMessage = `Server error: HTTP ${response.status}`
+            }
+          } else {
+            errorMessage = errorData || `HTTP ${response.status}`
+          }
         }
         
-        // Handle authentication errors specifically
         if (response.status === 401 || response.status === 403) {
           console.error('🔐 Authentication error:', errorMessage)
           this.clearToken()
@@ -77,7 +77,6 @@ class ApiService {
         throw new Error(errorMessage)
       }
       
-      // Handle empty or non-JSON responses
       const contentType = response.headers.get('content-type')
       if (contentType && contentType.includes('application/json')) {
         const data = await response.json()
@@ -105,12 +104,10 @@ class ApiService {
       })
     })
     
-    // Store the token immediately if received
     if (response.token) {
       this.setToken(response.token)
     }
     
-    // Backend returns { user: userData, token }
     return response
   }
 
@@ -125,7 +122,6 @@ class ApiService {
       })
     })
     
-    // Backend returns { id: ... }
     return response
   }
 
@@ -153,20 +149,18 @@ class ApiService {
     
     const formData = new FormData()
     
-    // NOMS EXACTS que votre backend attend (clusterRoutes.js ligne 15-16)
-    formData.append('clusterName', clusterData.name || '')           // ✅ clusterName
-    formData.append('maxAffinity', String(clusterData.maxAffinity ?? 3))  // ✅ maxAffinity  
-    formData.append('minAffinity', String(clusterData.minAffinity ?? 0))  // ✅ minAffinity
-    formData.append('groupSize', String(clusterData.groupSize ?? 2))      // ✅ groupSize
-    formData.append('clusterType', clusterData.clusterType || '1')        // ✅ clusterType
+    formData.append('clusterName', clusterData.name || '')
+    formData.append('maxAffinity', String(clusterData.maxAffinity ?? 3))
+    formData.append('minAffinity', String(clusterData.minAffinity ?? 0))
+    formData.append('groupSize', String(clusterData.groupSize ?? 2))
+    formData.append('clusterType', clusterData.clusterType || '1')
 
-    // Le backend attend 'studentsFile' (upload.single('studentsFile'))
     if (Array.isArray(clusterData.students) && clusterData.students.length > 0) {
       const blob = new Blob(
         [JSON.stringify(clusterData.students)], 
         { type: 'application/json' }
       )
-      formData.append('studentsFile', blob, 'students.json')  // ✅ studentsFile
+      formData.append('studentsFile', blob, 'students.json')
       console.log(`📁 Adding ${clusterData.students.length} students as studentsFile`)
     } else {
       console.warn('⚠️ Aucun étudiant importé')
@@ -195,32 +189,60 @@ class ApiService {
   }
 
   async downloadClusterGraph(clusterName, ownerEmail) {
-    // This method directly returns the URL for download
     return `${this.baseURL}/cluster/${clusterName}/graph/file?owner=${encodeURIComponent(ownerEmail)}`
   }
 
   // === STUDENT PREFERENCES ===
   
   async submitStudentPreferences(clusterId, preferences) {
-    return this.request(`/cluster/${clusterId}/preferences`, {
-      method: 'POST',
-      body: JSON.stringify(preferences)
-    })
+    console.log('📝 Attempting to submit preferences to backend...')
+    
+    try {
+      return await this.request(`/cluster/${clusterId}/preferences`, {
+        method: 'POST',
+        body: JSON.stringify(preferences)
+      })
+    } catch (error) {
+      // Enhanced error handling for missing endpoints
+      if (error.message.includes('Endpoint not found') || error.message.includes('404')) {
+        console.warn('⚠️ Preferences endpoint not implemented on backend, using local simulation')
+        throw new Error('ENDPOINT_NOT_FOUND')
+      }
+      throw error
+    }
   }
 
   async getStudentPreferences(clusterId, studentId) {
-    return this.request(`/cluster/${clusterId}/preferences/${encodeURIComponent(studentId)}`)
+    try {
+      return await this.request(`/cluster/${clusterId}/preferences/${encodeURIComponent(studentId)}`)
+    } catch (error) {
+      if (error.message.includes('Endpoint not found') || error.message.includes('404')) {
+        console.warn('⚠️ Get preferences endpoint not implemented on backend')
+        throw new Error('ENDPOINT_NOT_FOUND')
+      }
+      throw error
+    }
+  }
+
+  // === SCRIPT EXECUTION ===
+  
+  async runClusterScript(clusterName, scriptName) {
+    return this.request('/cluster/teacher/launch-script', {
+      method: 'POST',
+      body: JSON.stringify({
+        clusterName: clusterName,
+        scriptName: scriptName
+      })
+    })
   }
 
   // === UTILITIES ===
   
-  // Check if token is still valid
   async verifyToken() {
     try {
       await this.getMyProfile()
       return true
     } catch (error) {
-      // If error is 401 or 403, token is invalid
       if (error.message.includes('401') || error.message.includes('403')) {
         this.clearToken()
       }
@@ -228,19 +250,15 @@ class ApiService {
     }
   }
 
-  // Clear token on expiration
   clearToken() {
     console.log('🔄 Clearing authentication tokens')
     sessionStorage.removeItem('auth_token')
-    localStorage.removeItem('auth_token') // For compatibility with old code
+    localStorage.removeItem('auth_token')
   }
   
-  // Store token (dedicated method for uniformity)
   setToken(token) {
     console.log('🔑 Setting authentication token')
     sessionStorage.setItem('auth_token', token)
-    // Also set in localStorage for backward compatibility if needed
-    // localStorage.setItem('auth_token', token)
   }
 }
 
