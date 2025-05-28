@@ -1,4 +1,4 @@
-// stores/auth.js - Version finale sans conflits
+// stores/auth.js - try without conflicting imports
 import { defineStore } from 'pinia'
 import ApiService from '@/services/api'
 
