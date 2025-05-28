@@ -137,4 +137,12 @@ async function getUserInfos(userId) {
     return result.rows[0];
 }
 
-module.exports = { userLogin, userRegister, deleteUser, updateUser, getUserInfos };
+async function getUserIdByEmail(email) {
+    const result = await db.query(
+        'SELECT id FROM users WHERE email = $1',
+        [email]
+    );
+    return result.rows[0]?.id || null;
+}
+
+module.exports = { userLogin, userRegister, deleteUser, updateUser, getUserInfos, getUserIdByEmail };

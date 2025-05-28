@@ -10,6 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() }); // To buffer-in the 
 
 const clusterDAO = require('../../middlewares/db/clusterDAO');
 const localFilesDAO = require('../../middlewares/localFiles/localFilesDAO');
+const userDAO = require('../../middlewares/db/userDAO');
 
 // JWT middleware
 const { authorizeRole } = require('../../services/auth');
@@ -17,7 +18,11 @@ const { authorizeRole } = require('../../services/auth');
 // TEACHER — Create a cluster from uploaded file and insert in DB
 router.post('/teacher/create', authorizeRole("teacher"), upload.single('studentsFile'), async (req, res) => {
     try {
-        const { maxAffinity, minAffinity, groupSize, clusterName } = req.body;
+        const { maxAffinity, minAffinity, groupSize, clusterName, clusterType } = req.body;
+        if(!maxAffinity || !minAffinity || !groupSize || !clusterName || !clusterType){
+            console.log(maxAffinity, minAffinity, groupSize, clusterName, clusterType )
+            throw new Error("Missing fields");
+        }
         const ownerEmail = req.user.email;
 
         // Read the student list : csv, json, anything
@@ -26,13 +31,24 @@ router.post('/teacher/create', authorizeRole("teacher"), upload.single('students
         const CLIparams = {groupSize: parseInt(groupSize), outputFolder:"../../WebBack/uploads/" + ownerEmail +"/" + clusterName};
         const graph = await localFilesDAO.createClusterGraphFromStudentList(ownerEmail, clusterName, studentList, CLIparams);
 
+        const name = clusterName;
         const cluster = await clusterDAO.createCluster({
             name,
             ownerId: req.user.id,
             maxAffinity: maxAffinity ? parseInt(maxAffinity) : 5, // Default 5
             minAffinity: minAffinity ? parseInt(minAffinity) : 0, // Default 0
-            groupSize: groupSize ? parseInt(groupSize) : 3 // Default 3
+            groupSize: groupSize ? parseInt(groupSize) : 3, // Default 3
+            clusterType
         });
+
+        for (const email of studentList) {
+            const userId = await userDAO.getUserIdByEmail(email);
+            if (userId) {
+                await clusterDAO.authorizeUserOnCluster(cluster.id, userId);
+            } else {
+                console.warn(`Utilisateur non trouvé pour l'email : ${email}`);
+            }
+        }
 
         res.status(201).json({ message: 'Cluster created', cluster });
     } catch (err) {

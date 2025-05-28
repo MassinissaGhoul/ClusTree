@@ -18,15 +18,22 @@ async function createCluster({ name, ownerId, maxAffinity, minAffinity, groupSiz
     return result.rows[0];
 }
 
+async function authorizeUserOnCluster(clusterId, userId) {
+    await db.query(
+        `INSERT INTO authorizedusers (cluster_id, user_id)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [clusterId, userId]
+    );
+}
 
 // Get all clusters accessible to a given student (by user_id)
 async function getClustersForStudent(userId) {
     const result = await db.query(`
         SELECT DISTINCT c.*
         FROM clusters c
-        JOIN cluster_groups cg ON c.id = cg.cluster_id
-        JOIN user_groups ug ON cg.group_id = ug.group_id
-        WHERE ug.user_id = $1
+        JOIN authorizedusers au ON c.id = au.cluster_id
+        WHERE au.user_id = $1
     `, [userId]);
     return result.rows;
 }
@@ -85,5 +92,6 @@ module.exports = {
     linkClusterToGroup,
     linkClusterToCompetence,
     getClusterById,
-    deleteCluster
+    deleteCluster,
+    authorizeUserOnCluster
 };
