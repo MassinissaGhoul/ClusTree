@@ -1,88 +1,93 @@
-#define CATCH_CONFIG_MAIN
+// test/graphTest.cpp
 
-#include "../include/catch_amalgamated.hpp"
-
+#include <gtest/gtest.h>
 #include "../include/graph.hpp"
-
-
 #include <sstream>
-#include <iostream>
 
-TEST_CASE("addNode creates a new node and does not duplicate it", "[addNode]") {
+class GraphTest : public ::testing::Test {
+protected:
     Graph g;
-    REQUIRE(g.getNodes().empty());
+
+    // to get print
+    std::string capturePrint() {
+        std::ostringstream oss;
+        std::streambuf* oldCout = std::cout.rdbuf(oss.rdbuf());
+        g.print();
+        std::cout.rdbuf(oldCout);
+        return oss.str();
+    }
+};
+
+TEST_F(GraphTest, AddNodeCreatesNode) {
+    EXPECT_TRUE(g.getNodes().empty());
 
     Node* n1 = g.addNode(42);
-    REQUIRE(n1 != nullptr);
-    REQUIRE(n1->id == 42);
-    REQUIRE(n1->nbNeighbor == 0);
-    REQUIRE(g.getNodes().size() == 1);
+    ASSERT_NE(n1, nullptr);
+    EXPECT_EQ(n1->id, 42);
+    EXPECT_EQ(n1->nbNeighbor, 0);
+    EXPECT_EQ(n1->otherNodes.size(), 0u);
+    EXPECT_EQ(g.getNodes().size(), 1u);
 
-    // Calling again with the same ID should not create a second node
     Node* n1b = g.addNode(42);
-    REQUIRE(n1b == n1);
-    REQUIRE(g.getNodes().size() == 1);
+    EXPECT_EQ(n1, n1b);
+    EXPECT_EQ(g.getNodes().size(), 1u);
 }
 
-TEST_CASE("addEdge adds a bidirectional edge by default", "[addEdge]") {
-    Graph g;
-    g.addEdge(1, 2, 10);
+TEST_F(GraphTest, AddEdgeUnidirectional) {
+    g.addEdge(1, 2, 5, /*bidirectional=*/false);
 
-    // Both nodes must exist
-    REQUIRE(g.getNodes().count(1) == 1);
-    REQUIRE(g.getNodes().count(2) == 1);
+    ASSERT_EQ(g.getNodes().size(), 2u);
 
     Node* n1 = g.getNodes().at(1);
     Node* n2 = g.getNodes().at(2);
 
-    // Each node has exactly one neighbor
-    REQUIRE(n1->nbNeighbor == 1);
-    REQUIRE(n2->nbNeighbor == 1);
+    EXPECT_EQ(n1->nbNeighbor, 1);
+    EXPECT_EQ(n1->otherNodes.size(), 1u);
+    EXPECT_EQ(n2->nbNeighbor, 0);
+    EXPECT_EQ(n2->otherNodes.size(), 0u);
 
-    // Verify the weight
-    auto& e12 = n1->otherNodes.at(2);
-    auto& e21 = n2->otherNodes.at(1);
-    REQUIRE(e12.score->scoreValue == 10);
-    REQUIRE(e21.score->scoreValue == 10);
-
-    // Both pointers to score should be the same instance (shared)
-    REQUIRE(e12.score == e21.score);
+    const edge& e12 = n1->otherNodes.at(2);
+    EXPECT_EQ(e12.otherNode, n2);
+    EXPECT_FALSE(e12.duplicated);
+    ASSERT_NE(e12.score, nullptr);
+    EXPECT_EQ(e12.score->scoreValue, 5);
 }
 
-TEST_CASE("addEdge is unidirectional when bidirectional=false", "[addEdge]") {
-    Graph g;
-    g.addEdge(3, 4, 5, /*bidirectional=*/false);
+TEST_F(GraphTest, AddEdgeBidirectionalSharesScore) {
+    g.addEdge(10, 20, 7, /*bidirectional=*/true);
 
-    REQUIRE(g.getNodes().count(3) == 1);
-    REQUIRE(g.getNodes().count(4) == 1);
+    ASSERT_EQ(g.getNodes().size(), 2u);
+    Node* n10 = g.getNodes().at(10);
+    Node* n20 = g.getNodes().at(20);
 
-    Node* n3 = g.getNodes().at(3);
-    Node* n4 = g.getNodes().at(4);
+    EXPECT_EQ(n10->nbNeighbor, 1);
+    EXPECT_EQ(n10->otherNodes.size(), 1u);
+    EXPECT_EQ(n20->nbNeighbor, 1);
+    EXPECT_EQ(n20->otherNodes.size(), 1u);
 
-    REQUIRE(n3->nbNeighbor == 1);
-    REQUIRE(n4->nbNeighbor == 0);
+    const edge& e10_20 = n10->otherNodes.at(20);
+    const edge& e20_10 = n20->otherNodes.at(10);
 
-    REQUIRE(n3->otherNodes.count(4) == 1);
-    REQUIRE(n4->otherNodes.count(3) == 0);
+    EXPECT_EQ(e10_20.otherNode, n20);
+    EXPECT_EQ(e20_10.otherNode, n10);
+
+    EXPECT_FALSE(e10_20.duplicated);
+    EXPECT_TRUE(e20_10.duplicated);
+
+    ASSERT_NE(e10_20.score, nullptr);
+    EXPECT_EQ(e10_20.score, e20_10.score);
+    EXPECT_EQ(e10_20.score->scoreValue, 7);
 }
 
-TEST_CASE("print outputs the correct graph structure", "[print]") {
-    Graph g;
-    g.addEdge(5, 6, 7);
-    g.addEdge(5, 7, 3);
+TEST_F(GraphTest, PrintOutputsCorrectly) {
+    g.addEdge(3, 4, 2, true);
+    std::string out = capturePrint();
 
-    // Capture std::cout output
-    std::ostringstream oss;
-    auto old_buf = std::cout.rdbuf(oss.rdbuf());
+    EXPECT_NE(out.find("Node 3 neighbors: 4(w=2)"), std::string::npos);
+    EXPECT_NE(out.find("Node 4 neighbors: 3(w=2)"), std::string::npos);
+}
 
-    g.print();
-
-    // Restore original buffer
-    std::cout.rdbuf(old_buf);
-
-    std::string output = oss.str();
-    // Check that each line lists the expected neighbors and weights
-    REQUIRE(output.find("Node 5 neighbors: 6(w=7) 7(w=3)") != std::string::npos);
-    REQUIRE(output.find("Node 6 neighbors: 5(w=7)")    != std::string::npos);
-    REQUIRE(output.find("Node 7 neighbors: 5(w=3)")    != std::string::npos);
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

@@ -1,17 +1,25 @@
--- Create project CLI : xmake project -k vsxmake
-add_rules("mode.debug", "mode.release")
+-- xmake.lua
 
--- project
-target("graph_app")
+add_requires("gtest", { system = false, debug = false })
+
+-- 2. cible principale
+target("app")
     set_kind("binary")
     set_languages("cxx17")
-
-    -- source files
+    add_includedirs("include")
     add_files("src/*.cpp")
 
-    -- include directories
-    add_includedirs("include", {public = true})
+-- 3. cible de test qui génère graph_test
+target("testGraph")
+    set_kind("binary")
+    set_languages("cxx17")
+    add_includedirs("include")
+    add_files("test/testGraph.cpp")
+    add_packages("gtest")
 
-
-    -- optional: set output directory
-    set_targetdir("$(projectdir)/bin")
+target("testSAC")
+    set_kind("binary")
+    set_languages("cxx17")
+    add_includedirs("include")
+    add_files("test/testSimulatedAnnealingClustering.cpp", "src/SimulatedAnnealingClustering.cpp")
+    add_packages("gtest")
