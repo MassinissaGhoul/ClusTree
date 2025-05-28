@@ -1,15 +1,23 @@
 const db = require('../../db');
 
 // Create a new cluster
-async function createCluster({ name, ownerId, maxAffinity, groupSize }) {
+async function createCluster({ name, ownerId, maxAffinity, minAffinity, groupSize, formType }) {
     const result = await db.query(
-        `INSERT INTO clusters (name, owner_id, max_affinity, group_size)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO clusters (name, owner_id, max_affinity, min_affinity, group_size, cluster_type)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [name, ownerId, maxAffinity, groupSize]
+        [
+            name,
+            ownerId,
+            maxAffinity,
+            minAffinity,
+            groupSize,
+            formType
+        ]
     );
     return result.rows[0];
 }
+
 
 // Get all clusters accessible to a given student (by user_id)
 async function getClustersForStudent(userId) {
@@ -61,11 +69,21 @@ async function getClusterById(clusterId) {
     return result.rows[0];
 }
 
+// Delete a cluster by ID and owner
+async function deleteCluster(clusterId, ownerId) {
+    const result = await db.query(
+        `DELETE FROM clusters WHERE id = $1 AND owner_id = $2 RETURNING *`,
+        [clusterId, ownerId]
+    );
+    return result.rowCount > 0;
+}
+
 module.exports = {
     createCluster,
     getClustersForStudent,
     getClustersByOwner,
     linkClusterToGroup,
     linkClusterToCompetence,
-    getClusterById
+    getClusterById,
+    deleteCluster
 };
