@@ -44,7 +44,7 @@ struct edge
 
 struct score
 {
-    int score = 1; // weight
+    int scoreValue = 1; // weight
 };
 
 class Graph
@@ -93,7 +93,7 @@ public:
 
         // Allocate a single score
         score *s = new score();
-        s->score = w;
+        s->scoreValue = w;
 
         // Edge from -> to
         edge e1 = {n2, false, s};
@@ -117,7 +117,7 @@ public:
             for (const auto &kv : n->otherNodes)
             {
                 std::cout << " " << kv.first
-                          << "(w=" << kv.second.score->score << ")";
+                          << "(w=" << kv.second.score->scoreValue << ")";
             }
             std::cout << std::endl;
         }

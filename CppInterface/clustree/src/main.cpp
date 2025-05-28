@@ -31,7 +31,7 @@ int main() {
     for (auto const& [u, node] : g.getNodes()) {
         for (auto const& [v, ed] : node->otherNodes) {
             if (u < v)  // avoid double-printing
-                std::cout << u << " -- " << v << " (w=" << ed.score->score << ")\n";
+                std::cout << u << " -- " << v << " (w=" << ed.score->scoreValue << ")\n";
         }
     }
 
@@ -69,7 +69,7 @@ int main() {
                 auto& nbrs = g.getNodes().at(u)->otherNodes;
                 auto it = nbrs.find(v);
                 if (it != nbrs.end())
-                    scoreSum += it->second.score->score;
+                    scoreSum += it->second.score->scoreValue;
             }
         }
         std::cout << "Group " << grp << " (size=" << members.size()

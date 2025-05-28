@@ -63,7 +63,7 @@ double SimulatedAnnealingClustering::computeScore()
         {
             if (assign.at(j) == ci)
             {
-                total += ed.score->score;
+                total += ed.score->scoreValue;
             }
         }
     }
