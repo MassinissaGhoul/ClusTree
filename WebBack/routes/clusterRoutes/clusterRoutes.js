@@ -19,8 +19,7 @@ const { authorizeRole } = require('../../services/auth');
 router.post('/teacher/create', authorizeRole("teacher"), upload.single('studentsFile'), async (req, res) => {
     try {
         const { maxAffinity, minAffinity, groupSize, clusterName, clusterType } = req.body;
-        if(!maxAffinity || !minAffinity || !groupSize || !clusterName || !clusterType){
-            console.log(maxAffinity, minAffinity, groupSize, clusterName, clusterType )
+        if(!maxAffinity || !minAffinity || !groupSize || !clusterName || !clusterType){            
             throw new Error("Missing fields");
         }
         const ownerEmail = req.user.email;
