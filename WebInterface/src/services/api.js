@@ -12,10 +12,14 @@ class ApiService {
     
     const config = {
       headers: {
-        'Content-Type': 'application/json',
         ...options.headers
       },
       ...options
+    }
+
+    // Add Content-Type only if not FormData
+    if (!(options.body instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json'
     }
 
     // Check both sessionStorage and localStorage for token
@@ -40,7 +44,15 @@ class ApiService {
     try {
       console.log(`🔵 API Request: ${config.method || 'GET'} ${url}`)
       if (config.body) {
-        console.log('📤 Request Body:', JSON.parse(config.body))
+        if (config.body instanceof FormData) {
+          console.log('📤 Request Body: [FormData]')
+          // Optional: Log FormData content for debugging
+          // for (let pair of config.body.entries()) {
+          //   console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]))
+          // }
+        } else {
+          console.log('📤 Request Body:', JSON.parse(config.body))
+        }
       }
       
       const response = await fetch(url, config)
@@ -136,18 +148,41 @@ class ApiService {
 
   // === CLUSTERS (TEACHER) ===
   
- async createCluster(clusterData) {
-  // Ensure default values to avoid undefined
-  return this.request('/cluster/teacher/create', {
-    method: 'POST',
-    body: JSON.stringify({
-      name: clusterData.name,           // Ensure 'name' (not clusterName) is sent
-      maxAffinity: clusterData.maxAffinity || 3,
-      groupSize: clusterData.groupSize || 2,
-      students: clusterData.students || [] // Add students if available
+  async createCluster(clusterData) {
+    // Create FormData object to match backend expectations
+    const formData = new FormData()
+    
+    // Use clusterName instead of name to match backend expectation
+    formData.append('clusterName', clusterData.name)
+    
+    // Add other parameters
+    if (clusterData.maxAffinity) {
+      formData.append('maxAffinity', clusterData.maxAffinity)
+    }
+    
+    if (clusterData.minAffinity) {
+      formData.append('minAffinity', clusterData.minAffinity)
+    }
+    
+    if (clusterData.groupSize) {
+      formData.append('groupSize', clusterData.groupSize)
+    }
+    
+    // Default cluster type to 1 if not provided
+    formData.append('clusterType', clusterData.clusterType || '1')
+    
+    // Convert students array to a file and append it
+    if (clusterData.students && Array.isArray(clusterData.students)) {
+      const jsonContent = JSON.stringify(clusterData.students)
+      const blob = new Blob([jsonContent], { type: 'application/json' })
+      formData.append('studentsFile', blob, 'students.json')
+    }
+    
+    return this.request('/cluster/teacher/create', {
+      method: 'POST',
+      body: formData
     })
-  })
-}
+  }
 
   async getTeacherClusters() {
     return this.request('/cluster/teacher/list')

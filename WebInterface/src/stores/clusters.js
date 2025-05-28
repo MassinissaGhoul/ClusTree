@@ -1,4 +1,4 @@
-// stores/clusters.js - Fixed version to handle cluster creation
+// stores/clusters.js - Updated to match backend expectations
 import { defineStore } from 'pinia'
 import ApiService from '@/services/api'
 
@@ -86,11 +86,13 @@ export const useClustersStore = defineStore('clusters', {
       try {
         console.log('🔨 Creating a new cluster...', clusterData.name)
         
-        // Prepare data with default values
+        // Prepare data with default values to match backend expectations
         const clusterPayload = {
-          name: clusterData.name,
+          name: clusterData.name,               // This will be used as clusterName in API
           maxAffinity: clusterData.maxAffinity || 3,
-          groupSize: clusterData.groupSize || 2
+          minAffinity: clusterData.minAffinity || 0, // Add minAffinity
+          groupSize: clusterData.groupSize || 2,
+          clusterType: clusterData.clusterType || '1' // Add clusterType (default to 1)
         }
         
         // Add imported students if they exist
