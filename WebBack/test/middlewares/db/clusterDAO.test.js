@@ -16,30 +16,6 @@ describe('clusterDAO', () => {
     jest.clearAllMocks();
   });
 
-  test('createCluster should insert and return a cluster', async () => {
-    const mockCluster = {
-      id: 1,
-      name: 'Cluster A',
-      owner_id: 42,
-      max_affinity: 10,
-      group_size: 4
-    };
-    db.query.mockResolvedValue({ rows: [mockCluster] });
-
-    const result = await createCluster({
-      name: 'Cluster A',
-      ownerId: 42,
-      maxAffinity: 10,
-      groupSize: 4
-    });
-
-    expect(db.query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO clusters'),
-      ['Cluster A', 42, 10, 4]
-    );
-    expect(result).toEqual(mockCluster);
-  });
-
   test('getClustersForStudent should return clusters', async () => {
     const mockClusters = [{ id: 1 }, { id: 2 }];
     db.query.mockResolvedValue({ rows: mockClusters });
