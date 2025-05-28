@@ -45,41 +45,85 @@
         <div class="info-box">
           <h3>INFORMATION</h3>
           <p>
-            Select your preferences by enabling/disabling students. 
-            Once a student is selected, they become unavailable for subsequent choices.
+            Distribute your preference points among the available students. 
+            You have <strong>{{ totalPointsAvailable }}</strong> points to distribute.
           </p>
           <p v-if="selectedCluster.gradingEnabled">
             <strong>Grading enabled:</strong> 
             You must assign a grade between {{ selectedCluster.minGrade }} and {{ selectedCluster.maxGrade }} 
-            to each selected student.
+            to each student you give points to.
           </p>
+          <div class="points-summary">
+            <span class="points-used">Points used: {{ totalPointsUsed }}</span>
+            <span class="points-remaining" :class="{ 'points-exceeded': totalPointsUsed > totalPointsAvailable }">
+              Remaining: {{ totalPointsAvailable - totalPointsUsed }}
+            </span>
+          </div>
         </div>
 
         <div class="preferences-form">
-          <h3>Select Your Preferences</h3>
+          <h3>Distribute Your Points</h3>
           
           <div class="students-list">
             <div 
               v-for="student in availableStudentsForSelection" 
               :key="student.id"
               class="student-item"
-              :class="{ selected: student.selected, unavailable: student.unavailable }"
+              :class="{ 
+                'has-points': student.points > 0, 
+                'unavailable': student.unavailable 
+              }"
             >
               <div class="student-info">
                 <span class="student-name">{{ student.name }}</span>
-                <label class="toggle-switch" v-if="!student.unavailable">
-                  <input 
-                    type="checkbox" 
-                    v-model="student.selected"
-                    @change="toggleStudent(student)"
-                  >
-                  <span class="toggle-slider"></span>
-                </label>
-                <span v-else class="unavailable-text">Unavailable</span>
+                <span v-if="student.unavailable" class="unavailable-text">You cannot select yourself</span>
               </div>
               
-              <!-- Grade input if grading is enabled and student is selected -->
-              <div v-if="selectedCluster.gradingEnabled && student.selected" class="grade-input">
+              <div v-if="!student.unavailable" class="point-controls">
+                <div class="point-input-group">
+                  <label>Points:</label>
+                  <div class="point-input-wrapper">
+                    <button 
+                      @click="decrementPoints(student)" 
+                      class="point-btn minus"
+                      :disabled="student.points <= 0"
+                    >
+                      -
+                    </button>
+                    <input 
+                      type="number" 
+                      v-model.number="student.points"
+                      @input="validatePoints(student)"
+                      min="0"
+                      :max="totalPointsAvailable"
+                      class="point-input"
+                    >
+                    <button 
+                      @click="incrementPoints(student)" 
+                      class="point-btn plus"
+                      :disabled="totalPointsUsed >= totalPointsAvailable"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Quick selection buttons -->
+                <div class="quick-select">
+                  <button 
+                    v-for="quickValue in quickSelectValues" 
+                    :key="quickValue"
+                    @click="setStudentPoints(student, quickValue)"
+                    class="quick-btn"
+                    :disabled="(totalPointsUsed - student.points + quickValue) > totalPointsAvailable"
+                  >
+                    {{ quickValue }}
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Grade input if grading is enabled and student has points -->
+              <div v-if="selectedCluster.gradingEnabled && student.points > 0" class="grade-input">
                 <label>Grade:</label>
                 <input 
                   type="number" 
@@ -87,30 +131,56 @@
                   :min="selectedCluster.minGrade"
                   :max="selectedCluster.maxGrade"
                   class="grade-field"
+                  placeholder="Enter grade"
                 >
               </div>
             </div>
           </div>
 
-          <div class="selected-summary" v-if="selectedStudents.length > 0">
-            <h4>Your Selections ({{ selectedStudents.length }}):</h4>
-            <ol>
-              <li v-for="student in selectedStudents" :key="student.id">
-                {{ student.name }}
-                <span v-if="selectedCluster.gradingEnabled && student.grade">
-                  - Grade: {{ student.grade }}
+          <!-- Selection Summary -->
+          <div class="selected-summary" v-if="studentsWithPoints.length > 0">
+            <h4>Your Point Distribution:</h4>
+            <div class="distribution-list">
+              <div 
+                v-for="student in studentsWithPoints" 
+                :key="student.id"
+                class="distribution-item"
+              >
+                <span class="student-name">{{ student.name }}</span>
+                <span class="points-badge">{{ student.points }} points</span>
+                <span v-if="selectedCluster.gradingEnabled && student.grade" class="grade-badge">
+                  Grade: {{ student.grade }}
                 </span>
-              </li>
-            </ol>
+              </div>
+            </div>
           </div>
 
-          <button 
-            @click="submitPreferences" 
-            class="submit-btn"
-            :disabled="!canSubmit"
-          >
-            Submit Preferences
-          </button>
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <button 
+              @click="resetAllPoints" 
+              class="reset-btn"
+              :disabled="totalPointsUsed === 0"
+            >
+              Reset All Points
+            </button>
+            
+            <button 
+              @click="submitPreferences" 
+              class="submit-btn"
+              :disabled="!canSubmit"
+            >
+              Submit Preferences
+            </button>
+          </div>
+          
+          <!-- Validation Messages -->
+          <div v-if="validationErrors.length > 0" class="validation-errors">
+            <h4>⚠️ Please fix the following issues:</h4>
+            <ul>
+              <li v-for="error in validationErrors" :key="error">{{ error }}</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -138,31 +208,23 @@ export default {
   data() {
     return {
       selectedCluster: null,
-      studentPreferences: []
+      studentPreferences: [],
+      totalPointsAvailable: 100, // Configurable total points
+      quickSelectValues: [1, 5, 10, 20] // Quick selection buttons
     }
   },
   
   computed: {
     availableClusters() {
-      // Debug: montrer ce qui est récupéré
       console.log('🔍 Clusters disponibles:', this.clustersStore.clusters)
       console.log('👤 Email utilisateur:', this.authStore.user?.email)
       
-      // Retourner TOUS les clusters pour le moment (pour tester)
       return this.clustersStore.clusters
-      
-      // TODO: Restaurer le filtre une fois que les données sont correctes
-      // const userEmail = this.authStore.user?.email
-      // return this.clustersStore.clusters.filter(cluster => 
-      //   cluster.students?.includes(userEmail)
-      // )
     },
     
     availableStudentsForSelection() {
       if (!this.selectedCluster) return []
       
-      // Pour l'instant, créer une liste d'étudiants factice basée sur le CSV utilisé
-      // En attendant que le backend envoie la vraie liste d'étudiants
       const mockStudents = [
         'student0@mail.com',
         'student1@mail.com', 
@@ -180,30 +242,52 @@ export default {
           id: email,
           name: email.split('@')[0],
           email: email,
-          selected: existingPreference?.selected || false,
+          points: existingPreference?.points || 0,
           grade: existingPreference?.grade || '',
-          unavailable: isCurrentUser // Student cannot select themselves
+          unavailable: isCurrentUser
         }
       })
     },
     
-    selectedStudents() {
-      return this.availableStudentsForSelection.filter(student => student.selected)
+    studentsWithPoints() {
+      return this.availableStudentsForSelection
+        .filter(student => student.points > 0)
+        .sort((a, b) => b.points - a.points)
+    },
+    
+    totalPointsUsed() {
+      return this.availableStudentsForSelection
+        .reduce((sum, student) => sum + (student.points || 0), 0)
+    },
+    
+    validationErrors() {
+      const errors = []
+      
+      if (this.totalPointsUsed > this.totalPointsAvailable) {
+        errors.push(`You have exceeded the maximum points (${this.totalPointsUsed}/${this.totalPointsAvailable})`)
+      }
+      
+      if (this.totalPointsUsed === 0) {
+        errors.push('You must distribute at least 1 point')
+      }
+      
+      if (this.selectedCluster?.gradingEnabled) {
+        const studentsNeedingGrades = this.studentsWithPoints.filter(student => 
+          !student.grade || 
+          student.grade < this.selectedCluster.minGrade || 
+          student.grade > this.selectedCluster.maxGrade
+        )
+        
+        if (studentsNeedingGrades.length > 0) {
+          errors.push(`Please assign valid grades to all students with points`)
+        }
+      }
+      
+      return errors
     },
     
     canSubmit() {
-      if (this.selectedStudents.length === 0) return false
-      
-      // If grading is enabled, verify that all grades are entered
-      if (this.selectedCluster.gradingEnabled) {
-        return this.selectedStudents.every(student => 
-          student.grade && 
-          student.grade >= this.selectedCluster.minGrade && 
-          student.grade <= this.selectedCluster.maxGrade
-        )
-      }
-      
-      return true
+      return this.validationErrors.length === 0 && this.totalPointsUsed > 0
     }
   },
   
@@ -233,7 +317,6 @@ export default {
     },
     
     initializePreferences() {
-      // Pour l'instant, utiliser la liste d'étudiants factice
       const mockStudents = [
         'student0@mail.com',
         'student1@mail.com', 
@@ -243,33 +326,87 @@ export default {
         'student12@mail.com'
       ]
       
-      // Initialize preferences for this cluster
       this.studentPreferences = mockStudents
         .filter(email => email !== this.authStore.user?.email)
         .map(email => ({
           email,
-          selected: false,
+          points: 0,
           grade: ''
         }))
     },
     
-    toggleStudent(student) {
+    incrementPoints(student) {
+      if (this.totalPointsUsed < this.totalPointsAvailable) {
+        student.points = (student.points || 0) + 1
+        this.updatePreference(student)
+      }
+    },
+    
+    decrementPoints(student) {
+      if (student.points > 0) {
+        student.points--
+        this.updatePreference(student)
+      }
+    },
+    
+    setStudentPoints(student, points) {
+      const currentTotal = this.totalPointsUsed - (student.points || 0)
+      if (currentTotal + points <= this.totalPointsAvailable) {
+        student.points = points
+        this.updatePreference(student)
+      }
+    },
+    
+    validatePoints(student) {
+      // Ensure points are within valid range
+      if (student.points < 0) {
+        student.points = 0
+      }
+      
+      // Check if total exceeds limit
+      if (this.totalPointsUsed > this.totalPointsAvailable) {
+        const excess = this.totalPointsUsed - this.totalPointsAvailable
+        student.points = Math.max(0, student.points - excess)
+      }
+      
+      this.updatePreference(student)
+    },
+    
+    updatePreference(student) {
       const preference = this.studentPreferences.find(p => p.email === student.email)
       if (preference) {
-        preference.selected = student.selected
-        if (!student.selected) {
-          preference.grade = '' // Reset grade if deselected
+        preference.points = student.points || 0
+        preference.grade = student.grade || ''
+        
+        // Clear grade if no points assigned
+        if (preference.points === 0) {
+          preference.grade = ''
+          student.grade = ''
         }
       }
+    },
+    
+    resetAllPoints() {
+      this.availableStudentsForSelection.forEach(student => {
+        student.points = 0
+        student.grade = ''
+      })
+      
+      this.studentPreferences.forEach(pref => {
+        pref.points = 0
+        pref.grade = ''
+      })
     },
     
     async submitPreferences() {
       const preferences = {
         studentId: this.authStore.user.email,
         clusterId: this.selectedCluster.id,
-        choices: this.selectedStudents.map(student => ({
+        totalPoints: this.totalPointsUsed,
+        choices: this.studentsWithPoints.map(student => ({
           email: student.email,
           name: student.name,
+          points: student.points,
           grade: this.selectedCluster.gradingEnabled ? student.grade : null
         }))
       }
@@ -280,7 +417,7 @@ export default {
       )
       
       if (result.success) {
-        alert('Preferences submitted successfully!')
+        alert(`Preferences submitted successfully! You distributed ${this.totalPointsUsed} points among ${this.studentsWithPoints.length} students.`)
         this.backToSelection()
       } else {
         alert('Error submitting preferences: ' + result.error)
@@ -320,7 +457,7 @@ export default {
 }
 
 .main-content {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
@@ -381,6 +518,25 @@ export default {
   margin-bottom: 10px;
 }
 
+.points-summary {
+  display: flex;
+  gap: 20px;
+  margin-top: 15px;
+  font-weight: bold;
+}
+
+.points-used {
+  color: #4CAF50;
+}
+
+.points-remaining {
+  color: #ff9800;
+}
+
+.points-remaining.points-exceeded {
+  color: #f44336;
+}
+
 .preferences-form {
   background-color: white;
   border: 2px solid #333;
@@ -392,20 +548,20 @@ export default {
 }
 
 .student-item {
-  background-color: #ffeb3b;
-  border: 2px solid #333;
-  padding: 15px;
-  margin-bottom: 10px;
+  background-color: #f9f9f9;
+  border: 2px solid #ddd;
+  padding: 20px;
+  margin-bottom: 15px;
   transition: all 0.3s ease;
 }
 
-.student-item.selected {
-  background-color: #4CAF50;
-  color: white;
+.student-item.has-points {
+  background-color: #e8f5e8;
+  border-color: #4CAF50;
 }
 
 .student-item.unavailable {
-  background-color: #ccc;
+  background-color: #f0f0f0;
   opacity: 0.6;
 }
 
@@ -413,10 +569,12 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 15px;
 }
 
 .student-name {
   font-weight: bold;
+  font-size: 1.1rem;
 }
 
 .unavailable-text {
@@ -424,48 +582,81 @@ export default {
   font-style: italic;
 }
 
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 28px;
+.point-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+.point-input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-  border: 2px solid #333;
+.point-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-.toggle-slider:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 4px;
-  bottom: 2px;
-  background-color: white;
-  transition: .4s;
-}
-
-input:checked + .toggle-slider {
+.point-btn {
+  width: 35px;
+  height: 35px;
   background-color: #2196F3;
+  color: white;
+  border: 2px solid #333;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1.2rem;
 }
 
-input:checked + .toggle-slider:before {
-  transform: translateX(22px);
+.point-btn:hover:not(:disabled) {
+  background-color: #1976D2;
+}
+
+.point-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.point-btn.minus {
+  background-color: #f44336;
+}
+
+.point-btn.minus:hover:not(:disabled) {
+  background-color: #d32f2f;
+}
+
+.point-input {
+  width: 80px;
+  padding: 8px;
+  border: 2px solid #333;
+  text-align: center;
+  font-weight: bold;
+}
+
+.quick-select {
+  display: flex;
+  gap: 5px;
+}
+
+.quick-btn {
+  padding: 5px 10px;
+  background-color: #ffeb3b;
+  border: 2px solid #333;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.quick-btn:hover:not(:disabled) {
+  background-color: #333;
+  color: white;
+}
+
+.quick-btn:disabled {
+  background-color: #eee;
+  cursor: not-allowed;
 }
 
 .grade-input {
@@ -473,35 +664,89 @@ input:checked + .toggle-slider:before {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 10px;
+  background-color: #fff3e0;
+  border: 1px solid #ff9800;
+  border-radius: 4px;
 }
 
 .grade-field {
   width: 80px;
   padding: 5px;
   border: 2px solid #333;
-  background-color: white;
 }
 
 .selected-summary {
-  background-color: #e8f5e8;
-  border: 2px solid #4CAF50;
+  background-color: #f0f8ff;
+  border: 2px solid #2196F3;
   padding: 15px;
   margin: 20px 0;
 }
 
-.selected-summary ol {
+.distribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 10px;
 }
 
+.distribution-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.points-badge {
+  background-color: #4CAF50;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.grade-badge {
+  background-color: #ff9800;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.reset-btn {
+  flex: 1;
+  padding: 12px;
+  background-color: #ff9800;
+  color: white;
+  border: 2px solid #333;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.reset-btn:hover:not(:disabled) {
+  background-color: #f57c00;
+}
+
+.reset-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
 .submit-btn {
-  width: 100%;
+  flex: 2;
   padding: 15px;
   background-color: #2196F3;
   color: white;
   border: 2px solid #333;
   cursor: pointer;
   font-size: 1.1rem;
-  margin-top: 20px;
+  font-weight: bold;
 }
 
 .submit-btn:disabled {
@@ -511,5 +756,22 @@ input:checked + .toggle-slider:before {
 
 .submit-btn:hover:not(:disabled) {
   background-color: #1976D2;
+}
+
+.validation-errors {
+  background-color: #ffebee;
+  border: 2px solid #f44336;
+  padding: 15px;
+  margin-top: 15px;
+}
+
+.validation-errors h4 {
+  color: #f44336;
+  margin-bottom: 10px;
+}
+
+.validation-errors ul {
+  color: #d32f2f;
+  margin: 0;
 }
 </style>
