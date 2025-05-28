@@ -1,7 +1,7 @@
 const db = require('../../db');
 
 // Create a new cluster
-async function createCluster({ name, ownerId, maxAffinity, minAffinity, groupSize, formType }) {
+async function createCluster({ name, ownerId, maxAffinity, minAffinity, groupSize, clusterType }) {
     const result = await db.query(
         `INSERT INTO clusters (name, owner_id, max_affinity, min_affinity, group_size, cluster_type)
          VALUES ($1, $2, $3, $4, $5, $6)
@@ -12,7 +12,7 @@ async function createCluster({ name, ownerId, maxAffinity, minAffinity, groupSiz
             maxAffinity,
             minAffinity,
             groupSize,
-            formType
+            clusterType
         ]
     );
     return result.rows[0];
