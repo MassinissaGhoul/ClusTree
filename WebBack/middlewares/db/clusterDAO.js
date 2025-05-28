@@ -1,14 +1,30 @@
 const db = require('../../db');
 
 // Create a new cluster
-async function createCluster({ name, ownerId, maxAffinity, groupSize }) {
+async function createCluster({ name, ownerId, maxAffinity, minAffinity, groupSize, clusterType }) {
     const result = await db.query(
-        `INSERT INTO clusters (name, owner_id, max_affinity, group_size)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO clusters (name, owner_id, max_affinity, min_affinity, group_size, cluster_type)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [name, ownerId, maxAffinity, groupSize]
+        [
+            name,
+            ownerId,
+            maxAffinity,
+            minAffinity,
+            groupSize,
+            clusterType
+        ]
     );
     return result.rows[0];
+}
+
+async function authorizeUserOnCluster(clusterId, userId) {
+    await db.query(
+        `INSERT INTO authorizedusers (cluster_id, user_id)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [clusterId, userId]
+    );
 }
 
 // Get all clusters accessible to a given student (by user_id)
@@ -16,9 +32,8 @@ async function getClustersForStudent(userId) {
     const result = await db.query(`
         SELECT DISTINCT c.*
         FROM clusters c
-        JOIN cluster_groups cg ON c.id = cg.cluster_id
-        JOIN user_groups ug ON cg.group_id = ug.group_id
-        WHERE ug.user_id = $1
+        JOIN authorizedusers au ON c.id = au.cluster_id
+        WHERE au.user_id = $1
     `, [userId]);
     return result.rows;
 }
@@ -61,11 +76,22 @@ async function getClusterById(clusterId) {
     return result.rows[0];
 }
 
+// Delete a cluster by ID and owner
+async function deleteCluster(clusterId, ownerId) {
+    const result = await db.query(
+        `DELETE FROM clusters WHERE id = $1 AND owner_id = $2 RETURNING *`,
+        [clusterId, ownerId]
+    );
+    return result.rowCount > 0;
+}
+
 module.exports = {
     createCluster,
     getClustersForStudent,
     getClustersByOwner,
     linkClusterToGroup,
     linkClusterToCompetence,
-    getClusterById
+    getClusterById,
+    deleteCluster,
+    authorizeUserOnCluster
 };
