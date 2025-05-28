@@ -1,7 +1,6 @@
-// stores/clusters.js - Version adaptée pour le backend réel
+// stores/clusters.js - Version corrigée sans dépendance circulaire
 import { defineStore } from 'pinia'
 import ApiService from '@/services/api'
-import { useAuthStore } from './auth'
 
 export const useClustersStore = defineStore('clusters', {
   state: () => ({
@@ -14,17 +13,6 @@ export const useClustersStore = defineStore('clusters', {
   getters: {
     getClusterById: (state) => (id) => {
       return state.clusters.find(cluster => cluster.id === id)
-    },
-    
-    // Clusters filtrés par propriétaire (pour les professeurs)
-    myOwnedClusters: (state) => {
-      const authStore = useAuthStore()
-      return state.clusters.filter(cluster => cluster.owner_id === authStore.userId)
-    },
-    
-    // Clusters auxquels l'étudiant a accès
-    myAccessibleClusters: (state) => {
-      return state.clusters
     }
   },
 
@@ -35,7 +23,10 @@ export const useClustersStore = defineStore('clusters', {
       this.error = null
       
       try {
+        // Import dynamique pour éviter la dépendance circulaire
+        const { useAuthStore } = await import('./auth')
         const authStore = useAuthStore()
+        
         let clusters = []
         
         if (authStore.isTeacher) {
@@ -63,6 +54,8 @@ export const useClustersStore = defineStore('clusters', {
 
     // === CRÉER UN CLUSTER (PROFESSEUR UNIQUEMENT) ===
     async createCluster(clusterData) {
+      // Import dynamique pour éviter la dépendance circulaire
+      const { useAuthStore } = await import('./auth')
       const authStore = useAuthStore()
       
       if (!authStore.isTeacher) {
@@ -123,14 +116,10 @@ export const useClustersStore = defineStore('clusters', {
 
     // === SOUMETTRE DES PRÉFÉRENCES ÉTUDIANT ===
     async submitStudentPreferences(clusterId, preferences) {
-      // Cette fonctionnalité sera implémentée quand votre collègue ajoutera l'endpoint
       console.log('📝 Soumission des préférences:', { clusterId, preferences })
       
       try {
-        // TODO: Remplacer par l'endpoint réel quand il sera disponible
-        // const response = await ApiService.submitPreferences(clusterId, preferences)
-        
-        // Pour l'instant, simulation locale
+        // Simulation locale pour l'instant
         const cluster = this.clusters.find(c => c.id === clusterId)
         if (cluster) {
           cluster.preferences = cluster.preferences || {}
@@ -150,18 +139,6 @@ export const useClustersStore = defineStore('clusters', {
       this.clusters = []
       this.currentCluster = null
       this.error = null
-    },
-
-    // === RAFRAÎCHIR UN CLUSTER SPÉCIFIQUE ===
-    async refreshCluster(clusterId) {
-      try {
-        // Cette fonctionnalité nécessiterait un endpoint spécifique
-        // Pour l'instant, on rafraîchit tous les clusters
-        await this.fetchClusters()
-        return { success: true }
-      } catch (error) {
-        return { success: false, error: error.message }
-      }
     }
   }
 })
