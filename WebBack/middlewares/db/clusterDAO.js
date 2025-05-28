@@ -38,6 +38,21 @@ async function getClustersForStudent(userId) {
     return result.rows;
 }
 
+async function getStudentListInCluster(clusterId, userToExclude){
+    try {
+        const result = await db.query(`
+        SELECT u.email 
+        FROM users u
+        INNER JOIN authorizedusers a ON u.id = a.user_id
+        WHERE a.cluster_id = $1 AND u.id != $2
+        `, [clusterId, userToExclude]); // exclude current user
+
+        return result.rows;
+    }catch(error){
+        throw (error);
+    }
+}
+
 // Get all clusters created by a specific teacher (by owner_id)
 async function getClustersByOwner(ownerId) {
     const result = await db.query(
@@ -93,5 +108,6 @@ module.exports = {
     linkClusterToCompetence,
     getClusterById,
     deleteCluster,
-    authorizeUserOnCluster
+    authorizeUserOnCluster,
+    getStudentListInCluster
 };
