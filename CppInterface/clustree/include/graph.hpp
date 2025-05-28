@@ -1,3 +1,22 @@
+/**
+ * @file graph.hpp
+ * @brief Defines the Graph class and related structures for representing a weighted undirected graph.
+ *
+ * Structures:
+ * - Node: Represents a node in the graph, with an id, neighbors, and legacy color.
+ * - edge: Represents an edge to a neighbor node, with a pointer to the neighbor, duplication flag, and weight as a pointer.
+ * - score: Represents the weight of an edge.
+ *
+ * Class:
+ * - Graph: Manages nodes and edges, supports adding nodes/edges, and printing the graph.
+ *
+ * Usage:
+ *   - Use addNode() to create or retrieve a node.
+ *   - Use addEdge() to add a weighted edge between two nodes (bidirectional by default).
+ *   - Use getNodes() to access all nodes.
+ *   - Use print() to display the graph structure.
+ */
+
 #include <iostream>
 #include <vector>
 #include <unordered_map>
@@ -28,8 +47,6 @@ struct score
     int score = 1; // weight
 };
 
-
-
 class Graph
 {
 private:
@@ -49,7 +66,7 @@ public:
         }
     }
 
-    const std::unordered_map<key, Node *>& getNodes() const { return this->nodes; }
+    const std::unordered_map<key, Node *> &getNodes() const { return this->nodes; }
 
     // Creates a node if it doesn't exist
     Node *addNode(key id)
@@ -91,7 +108,6 @@ public:
         }
     }
 
-    // Print all nodes and their neighbors
     void print() const
     {
         for (const auto &p : nodes)

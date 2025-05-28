@@ -28,7 +28,7 @@ struct MergeEntry
 class GreedyModularityOptimization
 {
 public:
-    GreedyModularityOptimization(const Graph &g);
+    GreedyModularityOptimization(const Graph &g, int K);
     std::unordered_map<key, key> run();
     double getM() const { return m; }
     const std::unordered_map<key, Community> &getCommus() const { return commus; }
@@ -38,9 +38,12 @@ private:
     const Graph &g;
     std::unordered_map<key, Community> commus;
     double m;
+    int targetK;
+    int activeCount;
+    std::unordered_map<key, key> result;
 
     void initCommus();
     void optimize();
     void initMergeQueue();
-    key GreedyModularityOptimization::mergeCommunities(key aid, key bid);
+    key mergeCommunities(key aid, key bid);
 };
