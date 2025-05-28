@@ -399,6 +399,7 @@ export default {
     },
     
     async submitPreferences() {
+      // Prepare preferences data
       const preferences = {
         studentId: this.authStore.user.email,
         clusterId: this.selectedCluster.id,
@@ -411,16 +412,27 @@ export default {
         }))
       }
       
-      const result = await this.clustersStore.submitStudentPreferences(
-        this.selectedCluster.id, 
-        preferences
-      )
+      console.log('📝 Submitting point-based preferences:', preferences)
       
-      if (result.success) {
-        alert(`Preferences submitted successfully! You distributed ${this.totalPointsUsed} points among ${this.studentsWithPoints.length} students.`)
-        this.backToSelection()
-      } else {
-        alert('Error submitting preferences: ' + result.error)
+      try {
+        const result = await this.clustersStore.submitStudentPreferences(
+          this.selectedCluster.id, 
+          preferences
+        )
+        
+        if (result.success) {
+          const message = result.simulated 
+            ? `Preferences submitted in simulation mode! You distributed ${this.totalPointsUsed} points among ${this.studentsWithPoints.length} students. ⚠️ (Backend endpoint not available)`
+            : `Preferences submitted successfully! You distributed ${this.totalPointsUsed} points among ${this.studentsWithPoints.length} students.`
+          
+          alert(message)
+          this.backToSelection()
+        } else {
+          alert('Error submitting preferences: ' + result.error)
+        }
+      } catch (error) {
+        console.error('❌ Error in submitPreferences:', error)
+        alert('Error submitting preferences: ' + error.message)
       }
     },
     
