@@ -212,6 +212,18 @@ export const useClustersStore = defineStore('clusters', {
       }
     },
 
+    // === RUN CLUSTER SCRIPT ===
+    async runClusterScript(clusterName, scriptName) {
+      try {
+        console.log('🚀 Running script:', { clusterName, scriptName })
+        const response = await ApiService.runClusterScript(clusterName, scriptName)
+        return { success: true, output: response.output || response.message }
+      } catch (error) {
+        console.error('❌ Error running script:', error.message)
+        return { success: false, error: error.message }
+      }
+    },
+
     // === CLEAR STATE ===
     clearClusters() {
       this.clusters = []

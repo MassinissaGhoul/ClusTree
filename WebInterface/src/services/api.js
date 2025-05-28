@@ -212,6 +212,18 @@ class ApiService {
     return this.request(`/cluster/${clusterId}/preferences/${encodeURIComponent(studentId)}`)
   }
 
+  // === SCRIPT EXECUTION ===
+  
+  async runClusterScript(clusterName, scriptName) {
+    return this.request('/cluster/teacher/launch-script', {
+      method: 'POST',
+      body: JSON.stringify({
+        clusterName: clusterName,
+        scriptName: scriptName
+      })
+    })
+  }
+
   // === UTILITIES ===
   
   // Check if token is still valid

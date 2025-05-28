@@ -58,6 +58,33 @@
             </ul>
           </div>
           
+          <!-- Script Execution Section -->
+          <div class="script-execution">
+            <h4>Run Analysis Script</h4>
+            <div class="script-controls">
+              <div class="script-input-group">
+                <label>Script Name:</label>
+                <input 
+                  v-model="scriptName" 
+                  type="text" 
+                  placeholder="app.exe"
+                  class="script-input"
+                >
+              </div>
+              <button 
+                @click="runScript" 
+                class="run-script-btn"
+                :disabled="!scriptName.trim()"
+              >
+                🚀 Run Script
+              </button>
+            </div>
+            <div v-if="scriptOutput" class="script-output">
+              <h5>Script Output:</h5>
+              <pre>{{ scriptOutput }}</pre>
+            </div>
+          </div>
+          
           <div v-if="selectedCluster.preferences" class="preferences-summary">
             <h4>Submitted Preferences:</h4>
             <div v-for="(prefs, studentId) in selectedCluster.preferences" :key="studentId">
@@ -258,6 +285,8 @@ export default {
       selectedCluster: null,
       csvFileName: '',
       studentEmails: [],
+      scriptName: 'app.exe', // Script par défaut
+      scriptOutput: '', // Sortie du script
       newCluster: {
         name: '',
         clusterType: '1',
@@ -420,6 +449,32 @@ export default {
         maxGrade: 10
       }
       this.clearStudentsList()
+    },
+    
+    // === SCRIPT EXECUTION ===
+    async runScript() {
+      if (!this.selectedCluster || !this.scriptName.trim()) return
+      
+      this.scriptLoading = true
+      this.scriptOutput = ''
+      
+      try {
+        const result = await this.clustersStore.runClusterScript(
+          this.selectedCluster.name,
+          this.scriptName
+        )
+        
+        if (result.success) {
+          this.scriptOutput = result.output || 'Script executed successfully!'
+        } else {
+          this.scriptOutput = `Error: ${result.error}`
+        }
+      } catch (error) {
+        console.error('❌ Error running script:', error)
+        this.scriptOutput = `Error: ${error.message}`
+      } finally {
+        this.scriptLoading = false
+      }
     },
     
     logout() {
@@ -684,7 +739,86 @@ export default {
   background-color: #d32f2f;
 }
 
-/* === TOGGLE STYLES === */
+/* === SCRIPT EXECUTION STYLES === */
+.script-execution {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f0f8ff;
+  border: 2px solid #2196F3;
+  border-radius: 5px;
+}
+
+.script-execution h4 {
+  margin: 0 0 15px 0;
+  color: #2196F3;
+}
+
+.script-controls {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 15px;
+}
+
+.script-input-group {
+  flex: 1;
+}
+
+.script-input-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.script-input {
+  width: 100%;
+  padding: 8px;
+  border: 2px solid #333;
+  background-color: white;
+}
+
+.run-script-btn {
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: 2px solid #333;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.run-script-btn:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.run-script-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.script-output {
+  background-color: #1e1e1e;
+  color: #00ff00;
+  padding: 15px;
+  border: 2px solid #333;
+  font-family: 'Courier New', monospace;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.script-output h5 {
+  margin: 0 0 10px 0;
+  color: #ffeb3b;
+}
+
+.script-output pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* === REST OF STYLES === */
 .toggle-container {
   display: flex;
   align-items: center;
@@ -787,3 +921,5 @@ input:checked + .slider:before {
 }
 
 </style>
+
+
