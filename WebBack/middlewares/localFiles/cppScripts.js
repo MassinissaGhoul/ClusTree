@@ -23,7 +23,8 @@ async function listAvailableScripts() {
 async function execScript(scriptName, teacher_mail, cluster_name) {
   try {
     // Path to the graph.json file
-    const graphFilePath = path.join(uploadsFolderPath, teacher_mail, cluster_name, 'graph.json');
+    const clusterFolder = path.join(__dirname, uploadsFolderPath, teacher_mail, cluster_name);
+    const graphFilePath = path.join(clusterFolder, 'graph.json');
     
     // Check if graph.json exists
     if (!fs.existsSync(graphFilePath)) {
@@ -32,7 +33,7 @@ async function execScript(scriptName, teacher_mail, cluster_name) {
     }
 
     // Full path to the executable script
-    const scriptPath = path.join(scriptsFolderPath, scriptName);
+    const scriptPath = path.join(__dirname, scriptsFolderPath, scriptName+".exe");
 
     // Check if the .exe script exists
     if (!fs.existsSync(scriptPath)) {
@@ -42,6 +43,8 @@ async function execScript(scriptName, teacher_mail, cluster_name) {
 
     // Run the script using exec()
     exec(`"${scriptPath}" "${graphFilePath}"`, (error, stdout, stderr) => {
+      console.log("STDOUT:", stdout);
+      console.log("STDERR:", stderr);
       if (error) {
         console.error(`Error executing script: ${error.message}`);
         return;
@@ -56,11 +59,11 @@ async function execScript(scriptName, teacher_mail, cluster_name) {
       console.log(`stdout: ${stdout}`);
 
       // Assuming the script creates a result file (e.g., result.json), you can check for its presence
-      const resultFilePath = path.join(resultDirectory, 'result.json');  // Adjust based on your script's output
+      const resultFilePath = path.join(clusterFolder, 'result.json');  // Adjust based on your script's output
       if (fs.existsSync(resultFilePath)) {
         console.log(`Result file created: ${resultFilePath}`);
       } else {
-        console.log(`No result file found in ${resultDirectory}`);
+        console.log(`No result file found in ${clusterFolder}`);
       }
     });
   } catch (error) {

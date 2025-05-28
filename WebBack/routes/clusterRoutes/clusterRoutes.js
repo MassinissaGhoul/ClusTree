@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { parseStudentList } = require("../../utils/parseStudentList");
+const { execScript } = require('../../middlewares/localFiles/cppScripts');
 
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() }); // To buffer-in the files
@@ -27,7 +28,7 @@ router.post('/teacher/create', authorizeRole("teacher"), upload.single('students
         // Read the student list : csv, json, anything
         const studentList = parseStudentList(req.file.buffer);
 
-        const CLIparams = {groupSize: parseInt(groupSize), outputFolder:"../../WebBack/uploads/" + ownerEmail +"/" + clusterName};
+        const CLIparams = {groupSize: parseInt(groupSize), outputFolder:"../WebBack/uploads/" + ownerEmail +"/" + clusterName};
         const graph = await localFilesDAO.createClusterGraphFromStudentList(ownerEmail, clusterName, studentList, CLIparams);
 
         const name = clusterName;
@@ -45,7 +46,7 @@ router.post('/teacher/create', authorizeRole("teacher"), upload.single('students
             if (userId) {
                 await clusterDAO.authorizeUserOnCluster(cluster.id, userId);
             } else {
-                console.warn(`Utilisateur non trouvé pour l'email : ${email}`);
+                console.warn(`User not found : ${email}`);
             }
         }
 
@@ -121,5 +122,25 @@ router.get('/:cluster/graph/file', async (req, res) => {
         res.status(404).json({ error: 'File not found' });
     }
 });
+
+router.post('/teacher/launch-script', authorizeRole('teacher'), async (req, res) => {
+    try {
+        const { clusterName, scriptName } = req.body;
+
+        if (!clusterName || !scriptName) {
+            return res.status(400).json({ error: "Missing clusterName or scriptName" });
+        }
+
+        const teacherEmail = req.user.email;
+
+        await execScript(scriptName, teacherEmail, clusterName);
+
+        res.json({ message: `Script ${scriptName} launched for cluster ${clusterName}` });
+    } catch (error) {
+        console.error('Error launching script:', error);
+        res.status(500).json({ error: 'Failed to launch script' });
+    }
+});
+
 
 module.exports = router;
