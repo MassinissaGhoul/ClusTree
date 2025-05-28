@@ -157,5 +157,21 @@ router.post('/teacher/launch-script', authorizeRole('teacher'), async (req, res)
     }
 });
 
+router.post('/student/sendVote', authorizeRole('student'), async (req, res) => {
+  const { clusterId, votes } = req.body;
+
+  if (!clusterId || !Array.isArray(votes)) {
+    return res.status(400).json({ error: 'Invalid input format' });
+  }
+
+  try {
+    const { cluster_name, teacher_email } = await clusterDAO.getClusterFromId(clusterId);
+    await localFilesDAO.applyStudentVotesToGraph(cluster_name, teacher_email, votes, req.user.email);
+    res.json({ message: 'Votes successfully registered' });
+  } catch (err) {
+    console.error('Error when updating the graph :', err);
+    res.status(500).json({ error: 'Server error when updating the graph' });
+  }
+});
 
 module.exports = router;
