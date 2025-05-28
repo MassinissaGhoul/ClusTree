@@ -43,6 +43,7 @@ private:
     int maxIter;
     double T0, Tmin, alpha;
 
+protected:
     // Build an initial balanced partition (K blocks of size ~N/K)
     void initPartition();
 
