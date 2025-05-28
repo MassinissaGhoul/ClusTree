@@ -1,7 +1,11 @@
 #include "../include/jsonToGraph.hpp"
 
 
-void jsonToGraph(const std::string &filename, Graph &g, int &desiredGroupSize)
+void jsonToGraph(
+    const std::string &filename,
+    Graph &g,
+    int &desiredGroupSize,
+    std::string &outputFolder)
 {
     std::ifstream in(filename);
     if (!in.is_open()) {
@@ -11,13 +15,18 @@ void jsonToGraph(const std::string &filename, Graph &g, int &desiredGroupSize)
     json j;
     in >> j;
 
-    if (j.contains("CLI") && j["CLI"].contains("groupSize")) {
-        desiredGroupSize = j["CLI"]["groupSize"].get<int>();
+    if (j.contains("CLI")) {
+        if (j["CLI"].contains("groupSize")) {
+            desiredGroupSize = j["CLI"]["groupSize"].get<int>();
+        }
+        if (j["CLI"].contains("outputFolder")) {
+            outputFolder = j["CLI"]["outputFolder"].get<std::string>();
+        }
     }
 
     const auto &graph_j = j.at("Graph");
 
-    // Add nodes (string->key)
+    // Add nodes (string -> key)
     for (auto it = graph_j.begin(); it != graph_j.end(); ++it) {
         key u = hashString(it.key());
         g.addNode(u);
@@ -26,9 +35,10 @@ void jsonToGraph(const std::string &filename, Graph &g, int &desiredGroupSize)
     // Add edges (without duplicates)
     for (auto it = graph_j.begin(); it != graph_j.end(); ++it) {
         key u = hashString(it.key());
-        for (auto jt = it->begin(); jt != it->end(); ++jt) {
-            key v = hashString(jt.key());
-            int w = jt.value().get<int>();
+        for (const auto &entry : it.value()) {
+            std::string sec = entry.at("secondNode").get<std::string>();
+            key v = hashString(sec);
+            int w = entry.at("weight").get<int>();
             if (u < v) {
                 g.addEdge(u, v, w);
             }

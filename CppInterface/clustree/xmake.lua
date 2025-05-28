@@ -8,6 +8,7 @@ target("app")
     set_languages("cxx17")
     add_includedirs("include")
     add_files("src/*.cpp")
+    set_targetdir("../build/")
 
 -- 3. cible de test qui génère graph_test
 target("testGraph")

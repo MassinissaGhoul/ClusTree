@@ -8,38 +8,34 @@
 
 using json = nlohmann::json;
 
-/**
- * @brief Load a weighted graph and CLI parameters from a JSON file.
- *
- * @param filename         Path to the JSON file.
- * @param g                The Graph to fill.
- * @param desiredGroupSize (out) The group size read from "CLI"."groupSize".
- */
-void jsonToGraph(const std::string &filename, Graph &g, int &desiredGroupSize);
-
-
-
 
 /**
- * Exports a graph along with its grouping into a JSON file.
+ * Load a graph from a JSON file, mapping string IDs to numeric keys.
+ * Reads CLI.groupSize into desiredGroupSize and CLI.outputFolder into outputFolder.
  *
- * Generated JSON structure:
+ * JSON format:
  * {
- *   "Groups": {
- *     "0": [1, 5, 9],
- *     "1": [2, 3, 7],
- *     ...
- *   },
+ *   "CLI": { "groupSize": int, "outputFolder": string },
  *   "Graph": {
- *     "1": { "5": 8, "9": 2 },
- *     "2": { "3": 7, "7": 4 },
+ *     "<nodeName>": [
+ *       { "secondNode": "<otherNodeName>", "weight": int },
+ *       ...
+ *     ],
  *     ...
  *   }
  * }
- *
- * @param groups    Mapping from groupId to a vector of node IDs.
- * @param g         The graph containing all nodes and their edges.
- * @param outputPath  Absolute path for the output JSON file.
+ */
+void jsonToGraph(
+    const std::string &filename,
+    Graph &g,
+    int &desiredGroupSize,
+    std::string &outputFolder);
+
+
+
+/**
+ * Export graph and groups back to JSON, using original string IDs.
+ * Writes CLI.groupSize, Graph edges, and Groups mapping.
  */
 void graphToJsonWithGroups(
     const std::unordered_map<key, std::vector<key>>& groups,
