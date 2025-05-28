@@ -61,6 +61,7 @@ export const useClustersStore = defineStore('clusters', {
     setImportedStudents(students) {
       console.log(`📝 ${students.length} student(s) imported`)
       this.importedStudents = students
+      return Promise.resolve() // Return a promise for async/await compatibility
     },
 
     // === CREATE CLUSTER (TEACHER ONLY) ===
@@ -86,18 +87,25 @@ export const useClustersStore = defineStore('clusters', {
       try {
         console.log('🔨 Creating a new cluster...', clusterData.name)
         
+        // Ensure all required fields have values
+        if (!clusterData.name) {
+          throw new Error('Cluster name is required')
+        }
+        
         // Prepare data with default values to match backend expectations
         const clusterPayload = {
-          name: clusterData.name,               // This will be used as clusterName in API
-          maxAffinity: clusterData.maxAffinity || 3,
-          minAffinity: clusterData.minAffinity || 0, // Add minAffinity
+          name: clusterData.name,
+          clusterType: clusterData.clusterType || '1',
           groupSize: clusterData.groupSize || 2,
-          clusterType: clusterData.clusterType || '1' // Add clusterType (default to 1)
+          minAffinity: clusterData.minAffinity || 0,
+          maxAffinity: clusterData.maxAffinity || 3
         }
         
         // Add imported students if they exist
         if (this.importedStudents.length > 0) {
           clusterPayload.students = this.importedStudents
+        } else {
+          throw new Error('No students have been imported')
         }
         
         console.log('📤 Payload for cluster creation:', clusterPayload)
@@ -107,6 +115,8 @@ export const useClustersStore = defineStore('clusters', {
         // Add the new cluster to the local list
         if (response.cluster) {
           this.clusters.push(response.cluster)
+          // Clear imported students after successful creation
+          this.importedStudents = []
         }
         
         console.log('✅ Cluster created successfully:', response.cluster?.name)
@@ -156,17 +166,48 @@ export const useClustersStore = defineStore('clusters', {
       console.log('📝 Submitting preferences:', { clusterId, preferences })
       
       try {
-        // Local simulation for now
+        // Try to submit to the real API first
+        const response = await ApiService.submitStudentPreferences(clusterId, preferences)
+        
+        // Update local state if successful
         const cluster = this.clusters.find(c => c.id === clusterId)
         if (cluster) {
           cluster.preferences = cluster.preferences || {}
           cluster.preferences[preferences.studentId] = preferences.choices
         }
         
-        return { success: true }
+        return { success: true, data: response }
         
       } catch (error) {
-        console.error('❌ Error submitting preferences:', error.message)
+        console.error('❌ Error submitting preferences to API:', error.message)
+        
+        // Fallback to local simulation
+        console.log('🔄 Falling back to local simulation')
+        const cluster = this.clusters.find(c => c.id === clusterId)
+        if (cluster) {
+          cluster.preferences = cluster.preferences || {}
+          cluster.preferences[preferences.studentId] = preferences.choices
+        }
+        
+        return { success: true, simulated: true }
+      }
+    },
+
+    // === GET STUDENT PREFERENCES ===
+    async getStudentPreferences(clusterId, studentId) {
+      try {
+        console.log('📖 Retrieving preferences for:', { clusterId, studentId })
+        const preferences = await ApiService.getStudentPreferences(clusterId, studentId)
+        return { success: true, preferences }
+      } catch (error) {
+        console.error('❌ Error retrieving preferences:', error.message)
+        
+        // Fallback to local data
+        const cluster = this.clusters.find(c => c.id === clusterId)
+        if (cluster && cluster.preferences && cluster.preferences[studentId]) {
+          return { success: true, preferences: cluster.preferences[studentId], local: true }
+        }
+        
         return { success: false, error: error.message }
       }
     },

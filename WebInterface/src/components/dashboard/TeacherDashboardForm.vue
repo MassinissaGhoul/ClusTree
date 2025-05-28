@@ -30,6 +30,9 @@
             >
               <h4>{{ cluster.name }}</h4>
               <p>{{ cluster.students?.length || 0 }} students</p>
+              <p class="cluster-info">Type: {{ getClusterTypeLabel(cluster.cluster_type) }}</p>
+              <p class="cluster-info">Group Size: {{ cluster.group_size || 2 }}</p>
+              <p class="cluster-info">Affinity: {{ cluster.min_affinity || 0 }} - {{ cluster.max_affinity || 3 }}</p>
               <p v-if="cluster.gradingEnabled">
                 Grades: {{ cluster.minGrade }} - {{ cluster.maxGrade }}
               </p>
@@ -40,6 +43,12 @@
         <!-- Selected Cluster Details -->
         <div v-if="selectedCluster" class="cluster-details">
           <h3>{{ selectedCluster.name }}</h3>
+          <div class="cluster-metadata">
+            <p><strong>Type:</strong> {{ getClusterTypeLabel(selectedCluster.cluster_type) }}</p>
+            <p><strong>Group Size:</strong> {{ selectedCluster.group_size || 2 }}</p>
+            <p><strong>Affinity Range:</strong> {{ selectedCluster.min_affinity || 0 }} - {{ selectedCluster.max_affinity || 3 }}</p>
+          </div>
+          
           <div class="students-list">
             <h4>Participating Students:</h4>
             <ul>
@@ -72,6 +81,56 @@
               placeholder="Enter cluster name"
               class="form-input"
             >
+          </div>
+          
+          <!-- Cluster Type -->
+          <div class="form-group">
+            <label>Cluster Type</label>
+            <select v-model="newCluster.clusterType" class="form-input">
+              <option value="1">Points Fixes</option>
+              <option value="2">Random</option>
+              <option value="3">Custom</option>
+            </select>
+          </div>
+          
+          <!-- Group Size -->
+          <div class="form-group">
+            <label>Group Size</label>
+            <input 
+              v-model.number="newCluster.groupSize" 
+              type="number" 
+              min="2"
+              max="10"
+              placeholder="Group size (default: 2)"
+              class="form-input"
+            >
+          </div>
+          
+          <!-- Affinity Range -->
+          <div class="form-group">
+            <label>Affinity Range</label>
+            <div class="affinity-inputs">
+              <div class="affinity-field">
+                <label class="sub-label">Min Affinity</label>
+                <input 
+                  v-model.number="newCluster.minAffinity" 
+                  type="number" 
+                  min="0"
+                  placeholder="Min (default: 0)"
+                  class="form-input"
+                >
+              </div>
+              <div class="affinity-field">
+                <label class="sub-label">Max Affinity</label>
+                <input 
+                  v-model.number="newCluster.maxAffinity" 
+                  type="number" 
+                  min="1"
+                  placeholder="Max (default: 3)"
+                  class="form-input"
+                >
+              </div>
+            </div>
           </div>
           
           <!-- CSV Upload for Students -->
@@ -201,6 +260,10 @@ export default {
       studentEmails: [],
       newCluster: {
         name: '',
+        clusterType: '1',
+        groupSize: 2,
+        minAffinity: 0,
+        maxAffinity: 3,
         gradingEnabled: false,
         minGrade: 1,
         maxGrade: 10
@@ -212,6 +275,8 @@ export default {
     canCreateCluster() {
       return this.newCluster.name.trim() && 
              this.studentEmails.length > 0 &&
+             this.newCluster.minAffinity < this.newCluster.maxAffinity &&
+             this.newCluster.groupSize >= 2 &&
              (!this.newCluster.gradingEnabled || 
               (this.newCluster.minGrade < this.newCluster.maxGrade))
     }
@@ -222,6 +287,15 @@ export default {
   },
   
   methods: {
+    getClusterTypeLabel(type) {
+      const types = {
+        '1': 'Points Fixes',
+        '2': 'Random',
+        '3': 'Custom'
+      }
+      return types[type] || 'Unknown'
+    },
+    
     // === CSV FILE HANDLING ===
     async handleCsvUpload(event) {
       const file = event.target.files[0]
@@ -294,9 +368,15 @@ export default {
     
     // === CLUSTER CREATION ===
     async createCluster() {
+      // First, store the students in the clusters store
+      await this.clustersStore.setImportedStudents(this.studentEmails)
+      
       const clusterData = {
         name: this.newCluster.name,
-        studentEmails: this.studentEmails,
+        clusterType: this.newCluster.clusterType,
+        groupSize: this.newCluster.groupSize,
+        minAffinity: this.newCluster.minAffinity,
+        maxAffinity: this.newCluster.maxAffinity,
         gradingEnabled: this.newCluster.gradingEnabled,
         minGrade: this.newCluster.gradingEnabled ? this.newCluster.minGrade : null,
         maxGrade: this.newCluster.gradingEnabled ? this.newCluster.maxGrade : null
@@ -331,6 +411,10 @@ export default {
     resetForm() {
       this.newCluster = {
         name: '',
+        clusterType: '1',
+        groupSize: 2,
+        minAffinity: 0,
+        maxAffinity: 3,
         gradingEnabled: false,
         minGrade: 1,
         maxGrade: 10
@@ -421,11 +505,28 @@ export default {
   background-color: #ffeb3b;
 }
 
+.cluster-info {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 3px 0;
+}
+
 .cluster-details {
   margin-top: 30px;
   padding: 20px;
   background-color: #e3f2fd;
   border: 2px solid #333;
+}
+
+.cluster-metadata {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+}
+
+.cluster-metadata p {
+  margin: 5px 0;
 }
 
 .students-list ul {
@@ -460,6 +561,29 @@ export default {
   padding: 10px;
   border: 2px solid #333;
   background-color: white;
+}
+
+/* === NEW STYLES FOR ADDITIONAL FIELDS === */
+.affinity-inputs {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.affinity-field {
+  flex: 1;
+}
+
+.sub-label {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 5px !important;
+  font-weight: normal;
+}
+
+.form-input select {
+  background-color: white;
+  cursor: pointer;
 }
 
 /* === CSV UPLOAD STYLES === */
@@ -560,7 +684,7 @@ export default {
   background-color: #d32f2f;
 }
 
-/* === REST OF STYLES === */
+/* === TOGGLE STYLES === */
 .toggle-container {
   display: flex;
   align-items: center;
@@ -661,4 +785,5 @@ input:checked + .slider:before {
   border: 2px solid #333;
   cursor: pointer;
 }
+
 </style>

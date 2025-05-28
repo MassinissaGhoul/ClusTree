@@ -19,6 +19,15 @@
           >
             <h3>{{ cluster.name }}</h3>
             <p>{{ cluster.students?.length || 0 }} participants</p>
+            <p class="cluster-info">
+              Type: {{ getClusterTypeLabel(cluster.cluster_type) }}
+            </p>
+            <p class="cluster-info">
+              Group Size: {{ cluster.group_size || 2 }}
+            </p>
+            <p class="cluster-info">
+              Affinity: {{ cluster.min_affinity || 0 }} - {{ cluster.max_affinity || 3 }}
+            </p>
             <p v-if="cluster.gradingEnabled" class="grading-info">
               Grading enabled ({{ cluster.minGrade }} - {{ cluster.maxGrade }})
             </p>
@@ -185,6 +194,15 @@ export default {
   },
   
   methods: {
+    getClusterTypeLabel(type) {
+      const types = {
+        '1': 'Points Fixes',
+        '2': 'Random',
+        '3': 'Custom'
+      }
+      return types[type] || 'Unknown'
+    },
+    
     selectCluster(cluster) {
       this.selectedCluster = cluster
       this.clustersStore.selectCluster(cluster)
@@ -295,6 +313,12 @@ export default {
 
 .cluster-card:hover {
   background-color: #ffeb3b;
+}
+
+.cluster-info {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 5px 0;
 }
 
 .grading-info {

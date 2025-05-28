@@ -46,10 +46,10 @@ class ApiService {
       if (config.body) {
         if (config.body instanceof FormData) {
           console.log('📤 Request Body: [FormData]')
-          // Optional: Log FormData content for debugging
-          // for (let pair of config.body.entries()) {
-          //   console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]))
-          // }
+          // Debug logging to see what's being sent
+          for (let pair of config.body.entries()) {
+            console.log(`${pair[0]}: ${pair[1] instanceof File ? pair[1].name : pair[1]}`)
+          }
         } else {
           console.log('📤 Request Body:', JSON.parse(config.body))
         }
@@ -149,35 +149,29 @@ class ApiService {
   // === CLUSTERS (TEACHER) ===
   
   async createCluster(clusterData) {
-    // Create FormData object to match backend expectations
+    console.log('🔧 Creating cluster with EXACT backend field names...')
+    
     const formData = new FormData()
     
-    // Use clusterName instead of name to match backend expectation
-    formData.append('clusterName', clusterData.name)
-    
-    // Add other parameters
-    if (clusterData.maxAffinity) {
-      formData.append('maxAffinity', clusterData.maxAffinity)
+    // NOMS EXACTS que votre backend attend (clusterRoutes.js ligne 15-16)
+    formData.append('clusterName', clusterData.name || '')           // ✅ clusterName
+    formData.append('maxAffinity', String(clusterData.maxAffinity ?? 3))  // ✅ maxAffinity  
+    formData.append('minAffinity', String(clusterData.minAffinity ?? 0))  // ✅ minAffinity
+    formData.append('groupSize', String(clusterData.groupSize ?? 2))      // ✅ groupSize
+    formData.append('clusterType', clusterData.clusterType || '1')        // ✅ clusterType
+
+    // Le backend attend 'studentsFile' (upload.single('studentsFile'))
+    if (Array.isArray(clusterData.students) && clusterData.students.length > 0) {
+      const blob = new Blob(
+        [JSON.stringify(clusterData.students)], 
+        { type: 'application/json' }
+      )
+      formData.append('studentsFile', blob, 'students.json')  // ✅ studentsFile
+      console.log(`📁 Adding ${clusterData.students.length} students as studentsFile`)
+    } else {
+      console.warn('⚠️ Aucun étudiant importé')
     }
-    
-    if (clusterData.minAffinity) {
-      formData.append('minAffinity', clusterData.minAffinity)
-    }
-    
-    if (clusterData.groupSize) {
-      formData.append('groupSize', clusterData.groupSize)
-    }
-    
-    // Default cluster type to 1 if not provided
-    formData.append('clusterType', clusterData.clusterType || '1')
-    
-    // Convert students array to a file and append it
-    if (clusterData.students && Array.isArray(clusterData.students)) {
-      const jsonContent = JSON.stringify(clusterData.students)
-      const blob = new Blob([jsonContent], { type: 'application/json' })
-      formData.append('studentsFile', blob, 'students.json')
-    }
-    
+
     return this.request('/cluster/teacher/create', {
       method: 'POST',
       body: formData
@@ -203,6 +197,19 @@ class ApiService {
   async downloadClusterGraph(clusterName, ownerEmail) {
     // This method directly returns the URL for download
     return `${this.baseURL}/cluster/${clusterName}/graph/file?owner=${encodeURIComponent(ownerEmail)}`
+  }
+
+  // === STUDENT PREFERENCES ===
+  
+  async submitStudentPreferences(clusterId, preferences) {
+    return this.request(`/cluster/${clusterId}/preferences`, {
+      method: 'POST',
+      body: JSON.stringify(preferences)
+    })
+  }
+
+  async getStudentPreferences(clusterId, studentId) {
+    return this.request(`/cluster/${clusterId}/preferences/${encodeURIComponent(studentId)}`)
   }
 
   // === UTILITIES ===
