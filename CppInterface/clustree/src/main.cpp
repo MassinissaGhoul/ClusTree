@@ -1,82 +1,78 @@
 #include <iostream>
 #include "../include/SimulatedAnnealingClustering.hpp"
-#include "../include/json.hpp"
+#include "../include/jsonToGraph.hpp"
 
 
+#include <string>
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <input_graph.json> <output_result.json>" << std::endl;
+        return 1;
+    }
+    std::string inputPath = argv[1];
+    std::string outputPath = argv[2];
 
-
-int main() {
     Graph g;
-    int N = 100; //num node 
-    std::mt19937_64 rng(std::random_device{}());
-    std::uniform_real_distribution<double> prob(0.0, 1.0);
-    std::uniform_int_distribution<int> weight(1, 10);
-    double p = 0.05;
+    int desiredGroupSize = 2;
 
-    // build random sparse weighted graph
-    for (int i = 1; i <= N; ++i) {
-        g.addNode(i);
-    }
-    for (int i = 1; i <= N; ++i) {
-        for (int j = i + 1; j <= N; ++j) {
-            if (prob(rng) < p) {
-                int w = weight(rng);
-                g.addEdge(i, j, w);
-            }
-        }
+    // Load graph and desiredGroupSize from input JSON
+    try {
+        jsonToGraph(inputPath, g, desiredGroupSize);
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading graph: " << e.what() << std::endl;
+        return 1;
     }
 
-    // print all edges
+    // Display edges (optional)
     std::cout << "=== Graph edges ===\n";
     for (auto const& [u, node] : g.getNodes()) {
         for (auto const& [v, ed] : node->otherNodes) {
-            if (u < v)  // avoid double-printing
-                std::cout << u << " -- " << v << " (w=" << ed.score->scoreValue << ")\n";
+            if (u < v) std::cout << u << " -- " << v << " (w=" << ed.score->scoreValue << ")\n";
         }
     }
 
-    // clustering parameters
-    int desiredGroupSize = 2;
-    int K = N / desiredGroupSize + (N % desiredGroupSize ? 1 : 0);
+    // Perform clustering
+    int N = static_cast<int>(g.getNodes().size());
+    int K = (N + desiredGroupSize - 1) / desiredGroupSize;
+    SimulatedAnnealingClustering sac(g, K, 200000, 1.0, 1e-4, 0.995);
+    auto partition = sac.run();
 
-    SimulatedAnnealingClustering sac(
-        g,
-        K,
-        200000,
-        1.0,
-        1e-4,
-        0.995
-    );
-
-    // run clustering
-    auto partition = sac.run();  // nodeId -> groupId
-
-    // invert to groups
+    // Build groups map
     std::unordered_map<key, std::vector<key>> groups;
-    for (auto const& [node, grp] : partition)
+    for (auto const& [node, grp] : partition) {
         groups[grp].push_back(node);
+    }
 
-    // compute and print group scores
-    std::cout << "\n=== Resulting groups and intra-group scores ===\n";
-    for (auto const& [grp, members] : groups) {
-        double scoreSum = 0;
-        // sum weights for each unordered pair in this group
+    // Print each group's members and score
+    std::cout << "\n=== Group assignments and scores ===\n";
+    for (const auto& [grp, members] : groups) {
+        double groupScore = 0.0;
+        // Sum of weights of internal edges
         for (size_t i = 0; i < members.size(); ++i) {
-            auto u = members[i];
             for (size_t j = i + 1; j < members.size(); ++j) {
-                auto v = members[j];
-                // lookup edge weight if exists
-                auto& nbrs = g.getNodes().at(u)->otherNodes;
-                auto it = nbrs.find(v);
-                if (it != nbrs.end())
-                    scoreSum += it->second.score->scoreValue;
+                int u = members[i];
+                int v = members[j];
+                // Check if edge exists
+                auto& nodeU = g.getNodes().at(u);
+                auto it = nodeU->otherNodes.find(v);
+                if (it != nodeU->otherNodes.end()) {
+                    groupScore += it->second.score->scoreValue;
+                }
             }
         }
-        std::cout << "Group " << grp << " (size=" << members.size()
-                  << ", score=" << scoreSum << "):";
-        for (auto u : members)
-            std::cout << " " << u;
-        std::cout << "\n";
+        // Print group id, members, and total internal score
+        std::cout << "Group " << grp << ": ";
+        for (auto id : members) std::cout << id << " ";
+        std::cout << "| Score = " << groupScore << std::endl;
+    }
+
+    // Export full result to JSON (passing desiredGroupSize)
+    try {
+        graphToJsonWithGroups(groups, g, desiredGroupSize, outputPath);
+        std::cout << "\nResults exported to " << outputPath << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error exporting results: " << e.what() << std::endl;
+        return 1;
     }
 
     return 0;

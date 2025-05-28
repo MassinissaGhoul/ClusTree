@@ -15,3 +15,9 @@ using json = nlohmann::json;
  * @param desiredGroupSize (out) The group size read from "CLI"."groupSize".
  */
 void jsonToGraph(const std::string &filename, Graph &g, int &desiredGroupSize);
+
+void graphToJsonWithGroups(
+    const std::unordered_map<key, std::vector<key>>& groups,
+    const Graph& g,
+    int desiredGroupSize,
+    const std::string& outputPath);
