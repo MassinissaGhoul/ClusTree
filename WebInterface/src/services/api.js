@@ -1,12 +1,12 @@
-// services/api.js - Service pour communiquer avec le backend réel (Version Vite)
+// services/api.js - Service for communicating with the backend (Vite Version)
 class ApiService {
   constructor() {
-    // Dans Vite, utiliser import.meta.env au lieu de process.env
-    // Les variables doivent commencer par VITE_
+    // In Vite, use import.meta.env instead of process.env
+    // Variables must start with VITE_
     this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
   }
 
-  // Méthode générique pour faire des requêtes HTTP
+  // Generic method for HTTP requests
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`
     
@@ -18,10 +18,23 @@ class ApiService {
       ...options
     }
 
-    // Récupérer le token depuis le localStorage pour les requêtes authentifiées
-    const token = localStorage.getItem('auth_token')
+    // Check both sessionStorage and localStorage for token
+    // Try sessionStorage first (more secure)
+    let token = sessionStorage.getItem('auth_token')
+    
+    // If not found, check localStorage (for backward compatibility)
+    if (!token) {
+      token = localStorage.getItem('auth_token')
+      // If found in localStorage, migrate it to sessionStorage
+      if (token) {
+        sessionStorage.setItem('auth_token', token)
+      }
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    } else {
+      console.warn('⚠️ No authentication token found')
     }
 
     try {
@@ -32,28 +45,44 @@ class ApiService {
       
       const response = await fetch(url, config)
       
+      // Enhanced error handling
       if (!response.ok) {
         const errorData = await response.text()
         let errorMessage
         try {
           const parsedError = JSON.parse(errorData)
-          errorMessage = parsedError.error || `HTTP ${response.status}`
+          errorMessage = parsedError.error || parsedError.message || `HTTP ${response.status}`
         } catch {
           errorMessage = errorData || `HTTP ${response.status}`
         }
+        
+        // Handle authentication errors specifically
+        if (response.status === 401 || response.status === 403) {
+          console.error('🔐 Authentication error:', errorMessage)
+          this.clearToken()
+        }
+        
         throw new Error(errorMessage)
       }
       
-      const data = await response.json()
-      console.log('📥 API Response:', data)
-      return data
+      // Handle empty or non-JSON responses
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        console.log('📥 API Response:', data)
+        return data
+      } else {
+        const text = await response.text()
+        console.log('📥 API Response (non-JSON):', text.substring(0, 100))
+        return { success: true, message: text }
+      }
     } catch (error) {
       console.error('❌ API Error:', error.message)
       throw error
     }
   }
 
-  // === AUTHENTIFICATION ===
+  // === AUTHENTICATION ===
   
   async login(credentials) {
     const response = await this.request('/user/login', {
@@ -64,7 +93,12 @@ class ApiService {
       })
     })
     
-    // Le backend retourne { user: userData, token }
+    // Store the token immediately if received
+    if (response.token) {
+      this.setToken(response.token)
+    }
+    
+    // Backend returns { user: userData, token }
     return response
   }
 
@@ -79,7 +113,7 @@ class ApiService {
       })
     })
     
-    // Le backend retourne { id: ... }
+    // Backend returns { id: ... }
     return response
   }
 
@@ -100,55 +134,71 @@ class ApiService {
     })
   }
 
-  // === CLUSTERS (PROFESSEUR) ===
+  // === CLUSTERS (TEACHER) ===
   
-  async createCluster(clusterData) {
-    return this.request('/cluster/teacher/create', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: clusterData.name,
-        maxAffinity: clusterData.maxAffinity,
-        groupSize: clusterData.groupSize
-      })
+ async createCluster(clusterData) {
+  // Ensure default values to avoid undefined
+  return this.request('/cluster/teacher/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: clusterData.name,           // Ensure 'name' (not clusterName) is sent
+      maxAffinity: clusterData.maxAffinity || 3,
+      groupSize: clusterData.groupSize || 2,
+      students: clusterData.students || [] // Add students if available
     })
-  }
+  })
+}
 
   async getTeacherClusters() {
     return this.request('/cluster/teacher/list')
   }
 
-  // === CLUSTERS (ÉTUDIANT) ===
+  // === CLUSTERS (STUDENT) ===
   
   async getStudentClusters() {
     return this.request('/cluster/student/list')
   }
 
-  // === CLUSTERS (PARTAGÉ) ===
+  // === CLUSTERS (SHARED) ===
   
   async getClusterGraph(clusterName, ownerEmail) {
-    return this.request(`/cluster/${clusterName}/graph/raw?owner=${ownerEmail}`)
+    return this.request(`/cluster/${clusterName}/graph/raw?owner=${encodeURIComponent(ownerEmail)}`)
   }
 
   async downloadClusterGraph(clusterName, ownerEmail) {
-    // Cette méthode retourne directement l'URL pour le téléchargement
-    return `${this.baseURL}/cluster/${clusterName}/graph/file?owner=${ownerEmail}`
+    // This method directly returns the URL for download
+    return `${this.baseURL}/cluster/${clusterName}/graph/file?owner=${encodeURIComponent(ownerEmail)}`
   }
 
-  // === UTILITAIRES ===
+  // === UTILITIES ===
   
-  // Vérifier si le token est encore valide
+  // Check if token is still valid
   async verifyToken() {
     try {
       await this.getMyProfile()
       return true
     } catch (error) {
+      // If error is 401 or 403, token is invalid
+      if (error.message.includes('401') || error.message.includes('403')) {
+        this.clearToken()
+      }
       return false
     }
   }
 
-  // Nettoyer le token en cas d'expiration
+  // Clear token on expiration
   clearToken() {
-    localStorage.removeItem('auth_token')
+    console.log('🔄 Clearing authentication tokens')
+    sessionStorage.removeItem('auth_token')
+    localStorage.removeItem('auth_token') // For compatibility with old code
+  }
+  
+  // Store token (dedicated method for uniformity)
+  setToken(token) {
+    console.log('🔑 Setting authentication token')
+    sessionStorage.setItem('auth_token', token)
+    // Also set in localStorage for backward compatibility if needed
+    // localStorage.setItem('auth_token', token)
   }
 }
 
