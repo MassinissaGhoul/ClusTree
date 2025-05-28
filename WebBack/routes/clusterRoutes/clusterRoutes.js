@@ -3,42 +3,68 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 
-const clusterFileDAO = require('../../middlewares/db/clusterDAO');
+const { parseStudentList } = require("../../utils/parseStudentList");
+
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() }); // To buffer-in the files
+
+const clusterDAO = require('../../middlewares/db/clusterDAO');
 const localFilesDAO = require('../../middlewares/localFiles/localFilesDAO');
 
 // JWT middleware
 const { authorizeRole } = require('../../services/auth');
 
 // TEACHER — Create a cluster from uploaded file and insert in DB
-router.post('/teacher/create', authorizeRole('teacher'), async (req, res) => {
+router.post('/teacher/create', authorizeRole("teacher"), upload.single('studentsFile'), async (req, res) => {
     try {
-        const { name, maxAffinity, groupSize } = req.body;
+        const { maxAffinity, minAffinity, groupSize, clusterName } = req.body;
         const ownerEmail = req.user.email;
 
-        // Placeholder: simulate reading student list and creating graph
-        const studentListPath = path.join(__dirname, '..', 'uploads', ownerEmail, name, 'students.csv');
-        const graph = await localFilesDAO.generateGraphFromFile(studentListPath); // <- this is your placeholder logic
+        // Read the student list : csv, json, anything
+        const studentList = parseStudentList(req.file.buffer);
 
-        await localFilesDAO.writeGraphJson(ownerEmail, name, graph);
+        const CLIparams = {groupSize: parseInt(groupSize), outputFolder:"../../WebBack/uploads/" + ownerEmail +"/" + clusterName};
+        const graph = await localFilesDAO.createClusterGraphFromStudentList(ownerEmail, clusterName, studentList, CLIparams);
 
-        const cluster = await clusterFileDAO.createCluster({
+        const cluster = await clusterDAO.createCluster({
             name,
             ownerId: req.user.id,
-            maxAffinity: maxAffinity ? parseInt(maxAffinity) : null,
-            groupSize: groupSize ? parseInt(groupSize) : null
+            maxAffinity: maxAffinity ? parseInt(maxAffinity) : 5, // Default 5
+            minAffinity: minAffinity ? parseInt(minAffinity) : 0, // Default 0
+            groupSize: groupSize ? parseInt(groupSize) : 3 // Default 3
         });
 
         res.status(201).json({ message: 'Cluster created', cluster });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Failed to create cluster' });
+        res.status(500).json({ error: 'Failed to create cluster\n' + err });
     }
 });
+
+// TEACHER - Delete the chosen cluster
+router.delete('/teacher/delete/:clusterId', authorizeRole('teacher'), async (req, res) => {
+    const clusterId = req.params.clusterId;
+    const ownerId = req.user.id;
+
+    try {
+        const cluster = await clusterDAO.getClusterById(clusterId);
+        if (!cluster || cluster.owner_id !== ownerId) {
+            return res.status(403).json({ error: 'Not authorized to delete this cluster' });
+        }
+
+        await clusterDAO.deleteCluster(clusterId);
+        res.json({ message: 'Cluster deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete cluster' });
+    }
+});
+
 
 // TEACHER — List all their own clusters
 router.get('/teacher/list', authorizeRole('teacher'), async (req, res) => {
     try {
-        const clusters = await clusterFileDAO.getClustersByOwner(req.user.id);
+        const clusters = await clusterDAO.getClustersByOwner(req.user.id);
         res.json(clusters);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch clusters' });
@@ -48,7 +74,7 @@ router.get('/teacher/list', authorizeRole('teacher'), async (req, res) => {
 // STUDENT — List accessible clusters
 router.get('/student/list', authorizeRole('student'), async (req, res) => {
     try {
-        const clusters = await clusterFileDAO.getClustersForStudent(req.user.id);
+        const clusters = await clusterDAO.getClustersForStudent(req.user.id);
         res.json(clusters);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch clusters' });
