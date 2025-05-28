@@ -17,10 +17,10 @@ app.use(router)
 // Initialiser l'authentification au démarrage
 import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
+
 authStore.initAuth().catch(err => {
   console.error('Erreur lors de l\'initialisation de l\'authentification:', err)
 })
 
 // Monter l'application
 app.mount('#app')
-
