@@ -35,7 +35,7 @@ async function userLogin(email, password) {
         role: user.role_name
     };
 
-    return userData;
+    return { userData: userData };
 }
 
 async function userRegister(email, name, family_name, password) {
@@ -53,8 +53,14 @@ async function userRegister(email, name, family_name, password) {
 
     // Register the user but don't duplicate the field email
     const result = await db.query(
-        "INSERT INTO users (email, name, family_name, password) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
-        [email, name, family_name, hashedPassword]
+        "INSERT INTO users (email, name, family_name, password, role_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING RETURNING id",
+        [
+            email,
+            name,
+            family_name,
+            hashedPassword,
+            parseInt(process.env.DEFAULT_ROLE_ID)
+        ]
     );
 
     if (result.rowCount === 0) {
