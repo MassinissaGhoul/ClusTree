@@ -100,6 +100,20 @@ async function deleteCluster(clusterId, ownerId) {
     return result.rowCount > 0;
 }
 
+async function getClusterFromId(clusterId){
+    const result = await db.query(`
+        SELECT c.name AS cluster_name, u.email AS teacher_email
+        FROM clusters c
+        JOIN users u ON u.id = c.owner_id
+        WHERE c.id = $1
+    `, [clusterId]);
+
+    if (result.rows.length === 0) throw new Error("Cannot find cluster");
+
+    const { cluster_name, teacher_email } = result.rows[0];
+    return { cluster_name, teacher_email };
+}
+
 module.exports = {
     createCluster,
     getClustersForStudent,
@@ -109,5 +123,6 @@ module.exports = {
     getClusterById,
     deleteCluster,
     authorizeUserOnCluster,
-    getStudentListInCluster
+    getStudentListInCluster,
+    getClusterFromId
 };

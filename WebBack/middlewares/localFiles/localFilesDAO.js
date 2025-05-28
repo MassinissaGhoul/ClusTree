@@ -92,11 +92,35 @@ function getGraphFilePath(teacherEmail, clusterName) {
     return path.join(__dirname, uploadFilePath, teacherEmail, clusterName, 'graph.json');
 }
 
-// Read and parse graph.json
-async function readGraphJson(teacherEmail, clusterName) {
-    const filePath = getGraphFilePath(teacherEmail, clusterName);
-    const content = await fs.promises.readFile(filePath, 'utf-8');
-    return JSON.parse(content);
+async function applyStudentVotesToGraph(cluster_name, teacher_email, votes, evaluatorEmail) {
+  try {
+    const graphPath = path.join(__dirname, uploadFilePath, teacher_email, cluster_name, 'graph.json');
+
+    if (!fs.existsSync(graphPath)) {
+      throw new Error("graph.json file cannot be found");
+    }
+
+    const graphData = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
+
+    const voteMap = new Map();
+    votes.forEach(({ email, note }) => {
+      const parsedNote = parseFloat(note);
+      if (!isNaN(parsedNote)) voteMap.set(email, parsedNote);
+    });
+
+    graphData.Graph[evaluatorEmail].forEach(edge => {
+      if (voteMap.has(edge.secondNode)) {
+        edge.weight = voteMap.get(edge.secondNode);
+      }
+    });
+
+    fs.writeFileSync(graphPath, JSON.stringify(graphData, null, 2), 'utf-8');
+
+    return { success: true };
+  } catch (err) {
+    console.error('Error updateGraph:', err.message);
+    return { success: false, error: err.message };
+  }
 }
 
 module.exports = {
@@ -105,5 +129,5 @@ module.exports = {
     createClusterGraphFromStudentList,
     listClusters,
     getGraphFilePath,
-    readGraphJson
+    applyStudentVotesToGraph
 };
