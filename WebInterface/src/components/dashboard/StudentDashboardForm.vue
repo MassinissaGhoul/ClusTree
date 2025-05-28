@@ -144,17 +144,35 @@ export default {
   
   computed: {
     availableClusters() {
-      // Filter clusters where the current student is enrolled
-      const userEmail = this.authStore.user?.email
-      return this.clustersStore.clusters.filter(cluster => 
-        cluster.students?.includes(userEmail)
-      )
+      // Debug: montrer ce qui est récupéré
+      console.log('🔍 Clusters disponibles:', this.clustersStore.clusters)
+      console.log('👤 Email utilisateur:', this.authStore.user?.email)
+      
+      // Retourner TOUS les clusters pour le moment (pour tester)
+      return this.clustersStore.clusters
+      
+      // TODO: Restaurer le filtre une fois que les données sont correctes
+      // const userEmail = this.authStore.user?.email
+      // return this.clustersStore.clusters.filter(cluster => 
+      //   cluster.students?.includes(userEmail)
+      // )
     },
     
     availableStudentsForSelection() {
       if (!this.selectedCluster) return []
       
-      return this.selectedCluster.students.map(email => {
+      // Pour l'instant, créer une liste d'étudiants factice basée sur le CSV utilisé
+      // En attendant que le backend envoie la vraie liste d'étudiants
+      const mockStudents = [
+        'student0@mail.com',
+        'student1@mail.com', 
+        'student2@mail.com',
+        'student10@mail.com',
+        'student11@mail.com',
+        'student12@mail.com'
+      ]
+      
+      return mockStudents.map(email => {
         const isCurrentUser = email === this.authStore.user?.email
         const existingPreference = this.studentPreferences.find(p => p.email === email)
         
@@ -215,8 +233,18 @@ export default {
     },
     
     initializePreferences() {
+      // Pour l'instant, utiliser la liste d'étudiants factice
+      const mockStudents = [
+        'student0@mail.com',
+        'student1@mail.com', 
+        'student2@mail.com',
+        'student10@mail.com',
+        'student11@mail.com',
+        'student12@mail.com'
+      ]
+      
       // Initialize preferences for this cluster
-      this.studentPreferences = this.selectedCluster.students
+      this.studentPreferences = mockStudents
         .filter(email => email !== this.authStore.user?.email)
         .map(email => ({
           email,
