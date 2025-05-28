@@ -123,6 +123,21 @@ router.get('/:cluster/graph/file', async (req, res) => {
     }
 });
 
+// STUDENT — Get list of authorized users for a cluster (for form)
+router.get('/student/:id/form', authorizeRole('student'), async (req, res) => {
+  const clusterId = req.params.id;
+
+  try {
+    const result = await clusterDAO.getStudentListInCluster(clusterId, req.user.id);
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch users for form' });
+  }
+});
+
+
 router.post('/teacher/launch-script', authorizeRole('teacher'), async (req, res) => {
     try {
         const { clusterName, scriptName } = req.body;
