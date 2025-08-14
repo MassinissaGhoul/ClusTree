@@ -91,11 +91,9 @@ async function listClusters(teacherEmail) {
 function getGraphFilePath(teacherEmail, clusterName) {
     return path.join(__dirname, uploadFilePath, teacherEmail, clusterName, 'graph.json');
 }
-
 async function applyStudentVotesToGraph(cluster_name, teacher_email, votes, evaluatorEmail) {
   try {
     const graphPath = path.join(__dirname, uploadFilePath, teacher_email, cluster_name, 'graph.json');
-
     if (!fs.existsSync(graphPath)) {
       throw new Error("graph.json file cannot be found");
     }
@@ -108,20 +106,33 @@ async function applyStudentVotesToGraph(cluster_name, teacher_email, votes, eval
       if (!isNaN(parsedNote)) voteMap.set(email, parsedNote);
     });
 
+    // Met à jour les deux sens pour chaque voisin noté
     graphData.Graph[evaluatorEmail].forEach(edge => {
       if (voteMap.has(edge.secondNode)) {
-        edge.weight = voteMap.get(edge.secondNode);
+        const w = voteMap.get(edge.secondNode);
+        // sens évaluateur -> autre
+        edge.weight = w;
+
+        // sens autre -> évaluateur (rendre symétrique)
+        const reverseList = graphData.Graph[edge.secondNode] || [];
+        let rev = reverseList.find(e => e.secondNode === evaluatorEmail);
+        if (rev) {
+          rev.weight = w;
+        } else {
+          reverseList.push({ secondNode: evaluatorEmail, weight: w });
+        }
+        graphData.Graph[edge.secondNode] = reverseList;
       }
     });
 
     fs.writeFileSync(graphPath, JSON.stringify(graphData, null, 2), 'utf-8');
-
     return { success: true };
   } catch (err) {
     console.error('Error updateGraph:', err.message);
     return { success: false, error: err.message };
   }
 }
+
 
 module.exports = {
     upload,
