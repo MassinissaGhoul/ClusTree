@@ -1,8 +1,8 @@
 <template>
   <div class="login-form-container">
     <div class="form-header">
-      <button @click="goHome" class="home-btn">← Accueil</button>
-      <h2>Connexion</h2>
+      <button @click="goHome" class="home-btn">← Home</button>
+      <h2>Login</h2>
     </div>
     
     <form @submit.prevent="handleLogin" class="login-form">
@@ -13,19 +13,19 @@
           v-model="credentials.email" 
           type="email" 
           required 
-          placeholder="votre@email.com"
+          placeholder="your@email.com"
           class="form-input"
         >
       </div>
       
       <div class="form-group">
-        <label for="password">Mot de passe</label>
+        <label for="password">Password</label>
         <input 
           id="password"
           v-model="credentials.password" 
           type="password" 
           required 
-          placeholder="Votre mot de passe"
+          placeholder="Your password"
           class="form-input"
         >
       </div>
@@ -35,17 +35,15 @@
       </div>
       
       <button type="submit" class="submit-btn" :disabled="loading">
-        {{ loading ? 'Connexion...' : 'Se connecter' }}
+        {{ loading ? 'Logging in...' : 'Login' }}
       </button>
     </form>
     
     <div class="form-footer">
-      <p>Pas encore de compte ? 
-        <router-link to="/register" class="link">S'inscrire</router-link>
+      <p>Don't have an account? 
+        <router-link to="/register" class="link">Sign up</router-link>
       </p>
-      <p>
-        <a href="#" class="link">Mot de passe oublié ?</a>
-      </p>
+
     </div>
   </div>
 </template>
@@ -80,17 +78,17 @@ export default {
         const result = await this.authStore.login(this.credentials)
         
         if (result.success) {
-          // Rediriger vers le dashboard approprié
+          // Redirect to appropriate dashboard
           if (this.authStore.isTeacher) {
             this.$router.push('/teacher-dashboard')
           } else {
             this.$router.push('/student-dashboard')
           }
         } else {
-          this.error = result.error || 'Erreur de connexion'
+          this.error = result.error || 'Login error'
         }
       } catch (error) {
-        this.error = 'Erreur de connexion. Veuillez réessayer.'
+        this.error = 'Login error. Please try again.'
       } finally {
         this.loading = false
       }
@@ -110,18 +108,19 @@ export default {
   padding: 30px;
   background-color: white;
   border: 2px solid #333;
+  position: relative;
 }
 
 .form-header {
-  position: relative;
   text-align: center;
   margin-bottom: 30px;
+  margin-top: 40px;
 }
 
 .home-btn {
   position: absolute;
+  top: -40px;
   left: 0;
-  top: 0;
   padding: 8px 12px;
   background-color: #666;
   color: white;

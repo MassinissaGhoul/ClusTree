@@ -24,7 +24,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const { userData } = await userDAO.userLogin(email, password);
-        const token = await generateToken(userData);
+        const token = generateToken(userData);
         res.json({ user: userData, token });
     } catch (err) {
         res.status(401).json({ error: err.message });

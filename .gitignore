@@ -33,3 +33,10 @@
 
 .DS_Store
 build/
+.xmake/windows/x64
+
+.vs/
+.vscode/
+
+bin/
+.xmake/

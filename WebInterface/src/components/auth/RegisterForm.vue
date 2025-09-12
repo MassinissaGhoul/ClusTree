@@ -1,31 +1,31 @@
 <template>
   <div class="register-form-container">
     <div class="form-header">
-      <button @click="goHome" class="home-btn">← Accueil</button>
-      <h2>Inscription</h2>
+      <button @click="goHome" class="home-btn">← Home</button>
+      <h2>Sign Up</h2>
     </div>
     
     <form @submit.prevent="handleRegister" class="register-form">
       <div class="form-group">
-        <label for="firstName">Prénom</label>
+        <label for="firstName">First Name</label>
         <input 
           id="firstName"
           v-model="userData.firstName" 
           type="text" 
           required 
-          placeholder="Votre prénom"
+          placeholder="Your first name"
           class="form-input"
         >
       </div>
       
       <div class="form-group">
-        <label for="lastName">Nom</label>
+        <label for="lastName">Last Name</label>
         <input 
           id="lastName"
           v-model="userData.lastName" 
           type="text" 
           required 
-          placeholder="Votre nom de famille"
+          placeholder="Your last name"
           class="form-input"
         >
       </div>
@@ -37,31 +37,31 @@
           v-model="userData.email" 
           type="email" 
           required 
-          placeholder="votre@email.com"
+          placeholder="your@email.com"
           class="form-input"
         >
       </div>
       
       <div class="form-group">
-        <label for="password">Mot de passe</label>
+        <label for="password">Password</label>
         <input 
           id="password"
           v-model="userData.password" 
           type="password" 
           required 
-          placeholder="Votre mot de passe"
+          placeholder="Your password"
           class="form-input"
         >
       </div>
       
       <div class="form-group">
-        <label for="confirmPassword">Confirmer le mot de passe</label>
+        <label for="confirmPassword">Confirm Password</label>
         <input 
           id="confirmPassword"
           v-model="userData.confirmPassword" 
           type="password" 
           required 
-          placeholder="Confirmez votre mot de passe"
+          placeholder="Confirm your password"
           class="form-input"
         >
       </div>
@@ -71,13 +71,13 @@
       </div>
       
       <button type="submit" class="submit-btn" :disabled="loading || !canSubmit">
-        {{ loading ? 'Inscription...' : 'S\'inscrire' }}
+        {{ loading ? 'Signing up...' : 'Sign Up' }}
       </button>
     </form>
     
     <div class="form-footer">
-      <p>Déjà un compte ? 
-        <router-link to="/login" class="link">Se connecter</router-link>
+      <p>Already have an account? 
+        <router-link to="/login" class="link">Login</router-link>
       </p>
     </div>
   </div>
@@ -122,7 +122,7 @@ export default {
     'userData.confirmPassword'() {
       if (this.userData.password && this.userData.confirmPassword && 
           this.userData.password !== this.userData.confirmPassword) {
-        this.error = 'Les mots de passe ne correspondent pas'
+        this.error = 'Passwords do not match'
       } else {
         this.error = null
       }
@@ -132,7 +132,7 @@ export default {
   methods: {
     async handleRegister() {
       if (this.userData.password !== this.userData.confirmPassword) {
-        this.error = 'Les mots de passe ne correspondent pas'
+        this.error = 'Passwords do not match'
         return
       }
       
@@ -140,8 +140,8 @@ export default {
       this.error = null
       
       try {
-        // Déterminer le rôle basé sur l'email (logique temporaire)
-        // Vous pouvez changer cette logique selon vos besoins
+        // Determine role based on email (temporary logic)
+        // You can change this logic according to your needs
         const role = this.userData.email.includes('teacher') || this.userData.email.includes('prof') 
           ? 'teacher' 
           : 'student'
@@ -156,17 +156,17 @@ export default {
         })
         
         if (result.success) {
-          // Rediriger vers le dashboard approprié
+          // Redirect to appropriate dashboard
           if (this.authStore.isTeacher) {
             this.$router.push('/teacher-dashboard')
           } else {
             this.$router.push('/student-dashboard')
           }
         } else {
-          this.error = result.error || 'Erreur lors de l\'inscription'
+          this.error = result.error || 'Registration error'
         }
       } catch (error) {
-        this.error = 'Erreur lors de l\'inscription. Veuillez réessayer.'
+        this.error = 'Registration error. Please try again.'
       } finally {
         this.loading = false
       }
@@ -186,18 +186,19 @@ export default {
   padding: 30px;
   background-color: white;
   border: 2px solid #333;
+  position: relative;
 }
 
 .form-header {
-  position: relative;
   text-align: center;
   margin-bottom: 30px;
+  margin-top: 40px;
 }
 
 .home-btn {
   position: absolute;
+  top: -40px;
   left: 0;
-  top: 0;
   padding: 8px 12px;
   background-color: #666;
   color: white;

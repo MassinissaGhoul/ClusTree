@@ -1,22 +1,22 @@
-// services/auth.js
-const { V4 } = require('paseto');
-const { readFileSync } = require('fs');
+const jwt = require('jsonwebtoken');
+const fs = require('fs');
 const path = require('path');
 
-const privateKey = readFileSync(path.join(__dirname, '../secret/keys/private.key.pem'));
-const publicKey = readFileSync(path.join(__dirname, '../secret/keys/public.key.pem'));
+// Change ce secret ou stocke-le dans .env
+const JWT_SECRET = fs.readFileSync(path.join(__dirname, '../secret/keys/secret.key'), 'utf8').trim();
+const JWT_EXPIRES_IN = '1h';
 
-async function generateToken(payload) {
-    return await V4.sign(payload, privateKey, {
-        expiresIn: '1h',
+function generateToken(payload) {
+    return jwt.sign(payload, JWT_SECRET, {
+        expiresIn: JWT_EXPIRES_IN,
         audience: 'users',
         issuer: 'clustree'
     });
 }
 
-async function verifyToken(token) {
+function verifyToken(token) {
     try {
-        return await V4.verify(token, publicKey, {
+        return jwt.verify(token, JWT_SECRET, {
             audience: 'users',
             issuer: 'clustree'
         });
@@ -26,13 +26,13 @@ async function verifyToken(token) {
 }
 
 function authorizeRole(requiredRole) {
-    return async (req, res, next) => {
+    return (req, res, next) => {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
         if (!token) return res.status(401).json({ error: 'Missing token' });
 
         try {
-            const payload = await verifyToken(token);
+            const payload = verifyToken(token);
             if (payload.role !== requiredRole) {
                 return res.status(403).json({ error: 'Forbidden: insufficient role' });
             }
